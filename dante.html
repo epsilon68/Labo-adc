@@ -25,6 +25,21 @@
 <section id="step4" class="card hidden"><h2>Mission 4 — Latency</h2><p class="explain">La latence est le temps entre la capture et la restitution. Pour un retour musicien, elle doit rester basse. Choisissez le réglage qui transporte correctement les paquets avec la marge nécessaire.</p><div class="scenario"><button data-lat="0.25">0,25 ms<br><small>réseau très court</small></button><button data-lat="1">1 ms<br><small>réseau standard</small></button><button data-lat="5">5 ms<br><small>réseau étendu</small></button><button data-lat="10">10 ms<br><small>à éviter ici</small></button></div><div class="result" id="r4">Choisissez une latence Dante.</div><button class="primary" id="finish" style="margin-top:10px">Terminer la mission</button></section>
 
 <section id="success" class="card hidden"><h2>Mission réussie 🎉</h2><p class="explain">Vous avez réalisé une chaîne Dante fonctionnelle :</p><div class="net"><b>🎤 Micro</b><div class="netline"></div><div class="switch"><b>Switch</b>PTP · Ethernet</div><div class="netline"></div><b>🎛 Console</b><div class="netline"></div><b>🔊 Ampli</b></div><div class="result"><b>Discovery ✓ · Clocking ✓ · Subscriptions ✓ · Latency ✓</b><br><br>Dans un système réel, ces quatre contrôles constituent la base du diagnostic Dante.</div><button class="primary" id="restart" style="margin-top:10px">Recommencer</button></section>
+<button
+  type="button"
+  onclick="window.location.href='dante-niveau-2.html'"
+  style="
+    width:100%;
+    margin-top:10px;
+    padding:12px;
+    border:1px solid #bc8cff;
+    border-radius:10px;
+    background:#0d1117;
+    color:#d2a8ff;
+    font-weight:700;">
+  🌐 Mission Dante — Niveau 2
+</button>
+
 <div class="footer">Simulation pédagogique hors ligne — aucun périphérique réel n'est modifié.</div>
 </main>
 <script>

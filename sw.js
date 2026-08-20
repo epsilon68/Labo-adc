@@ -1,13 +1,14 @@
-const CACHE_NAME = "labo-adc-v11";
+const CACHE_NAME = "labo-adc-v13";
 
 const FILES_TO_CACHE = [
-  "./",
-  "./index.html",
-  "./dante.html",
+  	"./",
+  	"./index.html",
+  	"./dante.html",
   "./installation-av.html",
   "./manifest.json",
   "./sw.js",
   "./icon.png"
+	"./dante-niveau-2.html"
 ];
 
 
@@ -42,5 +43,4 @@ self.addEventListener("fetch", event => {
     }).catch(() => caches.match("./labo-adc-v7.html"))
   );
 });
-"./dante.html"
-"./installation-av.html"
+
