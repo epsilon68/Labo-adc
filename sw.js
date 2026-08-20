@@ -1,11 +1,15 @@
-const CACHE_NAME = "labo-adc-v10";
+const CACHE_NAME = "labo-adc-v11";
 
 const FILES_TO_CACHE = [
   "./",
-  "./labo-adc-v7.html",
+  "./index.html",
+  "./dante.html",
+  "./installation-av.html",
   "./manifest.json",
+  "./sw.js",
   "./icon.png"
 ];
+
 
 self.addEventListener("install", event => {
   event.waitUntil(
