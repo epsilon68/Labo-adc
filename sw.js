@@ -1,4 +1,4 @@
-const CACHE_NAME = "labo-adc-v13";
+const CACHE_NAME = "labo-adc-v14";
 
 const FILES_TO_CACHE = [
   	"./",
@@ -9,6 +9,7 @@ const FILES_TO_CACHE = [
   "./sw.js",
   "./icon.png"
 	"./dante-niveau-2.html"
+	"./dashboard.html"
 ];
 
 
