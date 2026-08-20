@@ -1,4 +1,4 @@
-const CACHE_NAME = "labo-adc-v9";
+const CACHE_NAME = "labo-adc-v10";
 
 const FILES_TO_CACHE = [
   "./",
@@ -39,3 +39,4 @@ self.addEventListener("fetch", event => {
   );
 });
 "./dante.html"
+"./installation-av.html"
