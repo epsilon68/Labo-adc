@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-	fit=cover, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Labo ADC — Conversion Analogique → Numérique</title>
@@ -61,6 +61,17 @@
   .legend-note { font-size:0.75rem; color:var(--muted); margin-top:10px; line-height:1.5; }
   .row2 { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px; }
   .status { font-size:0.78rem; color:var(--muted); margin-top:8px; line-height:1.4; }
+
+
+  /* ---- Horloge / compatibilité numérique ---- */
+  .clock-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .clock-grid .full { grid-column:1/-1; }
+  .clock-status { margin-top:10px; padding:10px 12px; border-radius:10px; border:1px solid var(--border);
+    background:#0d1117; font-size:0.82rem; line-height:1.55; }
+  .clock-status.ok { border-color:rgba(63,185,80,0.55); }
+  .clock-status.warn { border-color:rgba(210,153,34,0.65); }
+  .clock-status.bad { border-color:rgba(248,81,73,0.65); }
+  .clock-status .title { font-weight:700; margin-bottom:3px; }
 
   /* ---- Calculateurs AV ---- */
   .calc-sec { font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em;
@@ -152,7 +163,7 @@
 <body>
 <header>
   <h1>⚡ Labo ADC — Analogique → Numérique</h1>
-  <p>V7 · Calculateurs AV · Chaîne audio · Chipsets Dante · FFT · Glossaire</p>
+  <p>V8 · Horloge / PTP / SRC · Calculateurs AV · Chaîne audio · Chipsets Dante · FFT · Glossaire</p>
 </header>
 <main>
   <section id="controls">
@@ -223,6 +234,38 @@
         <button id="presetDel">🗑 Supprimer</button>
       </div>
       <div class="status">Vos presets sont stockés localement sur cet appareil uniquement.</div>
+    </div>
+
+    <div class="card" style="margin-top:14px" id="scopeControls">
+      <h2>Oscilloscope</h2>
+      <div class="seg c3" id="scopeTimeSeg">
+        <button type="button" data-time="0.0002">200 µs/div</button>
+        <button type="button" data-time="0.001">1 ms/div</button>
+        <button type="button" data-time="0.005" class="on">5 ms/div</button>
+      </div>
+      <div class="seg c3" id="scopeVoltSeg">
+        <button type="button" data-volt="0.1">0,1 V/div</button>
+        <button type="button" data-volt="0.25" class="on">0,25 V/div</button>
+        <button type="button" data-volt="0.5">0,5 V/div</button>
+      </div>
+      <div class="ctrl">
+        <label>Niveau de trigger <output id="triggerOut">0,00</output></label>
+        <input type="range" id="triggerLevel" min="-1" max="1" step="0.01" value="0">
+      </div>
+      <div class="seg c2" id="triggerSlopeSeg">
+        <button type="button" id="triggerRise" class="on">↗ Montant</button>
+        <button type="button" id="triggerFall">↘ Descendant</button>
+      </div>
+      <div class="seg c2" id="triggerModeSeg">
+        <button type="button" id="triggerAuto" class="on">Auto</button>
+        <button type="button" id="triggerNormal">Normal</button>
+      </div>
+      <div class="stats" style="margin-top:8px">
+        <div class="stat"><div class="k">Fréquence mesurée</div><div class="v" id="scopeFreq">—</div></div>
+        <div class="stat"><div class="k">Vpp</div><div class="v" id="scopeVpp">—</div></div>
+        <div class="stat"><div class="k">Vrms</div><div class="v" id="scopeVrms">—</div></div>
+      </div>
+      <div class="status">La grille de l'oscilloscope représente une échelle de temps et d'amplitude. Le trigger stabilise l'affichage du signal.</div>
     </div>
 
     <div class="card" style="margin-top:14px">
@@ -379,6 +422,44 @@ Comparatif des chipsets Dante</button>
       </div>
     </div>
 
+
+    <div class="card">
+      <h2>⏱ Horloge & compatibilité numérique</h2>
+      <div class="ctrl">
+        <label>Clock Master</label>
+        <div class="seg c3" id="clockSeg" style="margin-bottom:0">
+          <button id="clockAdc" class="on">ADC local</button>
+          <button id="clockDante">Dante / PTP</button>
+          <button id="clockWord">Word Clock</button>
+        </div>
+      </div>
+      <div class="clock-grid">
+        <label class="ctrl" style="margin:0">
+          <span style="font-size:.7rem;color:var(--muted)">Fréquence du domaine numérique</span>
+          <select id="clockFs">
+            <option value="44100">44,1 kHz</option>
+            <option value="48000" selected>48 kHz</option>
+            <option value="96000">96 kHz</option>
+            <option value="192000">192 kHz</option>
+          </select>
+        </label>
+        <label class="ctrl" style="margin:0">
+          <span style="font-size:.7rem;color:var(--muted)">Word Clock externe</span>
+          <select id="wordFs">
+            <option value="44100">44,1 kHz</option>
+            <option value="48000" selected>48 kHz</option>
+            <option value="96000">96 kHz</option>
+            <option value="192000">192 kHz</option>
+          </select>
+        </label>
+      </div>
+      <div class="clock-status" id="clockStatus">—</div>
+      <div class="legend-note">
+        <span class="term" data-t="ptp">PTP</span> synchronise les horloges des équipements Dante ; il ne convertit pas une fréquence d'échantillonnage en une autre.
+        Si deux domaines audio utilisent des fréquences différentes, un <span class="term" data-t="src">SRC</span> est nécessaire pour faire le pont.
+      </div>
+    </div>
+
     <div class="card">
       <h2>🧮 Calculateurs AV</h2>
 
@@ -460,7 +541,8 @@ Comparatif des chipsets Dante</button>
   const state = {
     source:"gen", sigType:"sine", freq:440, amp:0.9, fs:8000, bits:8,
     recon:"zoh", layout:"split",
-    show:{ analog:true, quantGrid:false, samples:true, recon:true, error:false }
+    show:{ analog:true, quantGrid:false, samples:true, recon:true, error:false },
+    clockMaster:"adc", clockFs:48000, wordFs:48000
   };
 
   const guided = { active:false, step:1, progress:0, lastT:0 };
@@ -517,6 +599,8 @@ Comparatif des chipsets Dante</button>
     fft:{ t:"FFT (transformée de Fourier rapide)", d:"Algorithme qui décompose un signal en ses composantes fréquentielles. L'axe horizontal montre les fréquences, l'axe vertical leur niveau en dB. Ici, la FFT est calculée sur le signal NUMÉRIQUE : elle révèle les pics du signal, le plancher de bruit de quantification et les fréquences fantômes de l'aliasing." },
     pcm:{ t:"PCM (modulation par impulsions codées)", d:"La suite de mots binaires produite par la conversion : chaque échantillon devient un nombre codé sur N bits. C'est le format brut de l'audio numérique — celui des fichiers WAV, du CD, et transporté tel quel par Dante." },
     larsen:{ t:"Effet Larsen", d:"Boucle de réinjection acoustique : le micro capte le son des haut-parleurs, qui est réamplifié, recapté… jusqu'au sifflement. C'est pourquoi l'écoute est désactivée quand le micro est la source." },
+    ptp:{ t:"PTP (Precision Time Protocol)", d:"Protocole IEEE 1588 utilisé par Dante pour synchroniser très précisément les horloges des équipements sur le réseau. Le PTP distribue une référence temporelle ; il ne transforme pas 44,1 kHz en 48 kHz et ne remplace donc pas un SRC." },
+    src:{ t:"SRC (Sample Rate Converter)", d:"Convertisseur de fréquence d'échantillonnage. Il transforme un flux PCM d'une fréquence vers une autre, par exemple 44,1 kHz → 48 kHz. Il est nécessaire lorsqu'une liaison numérique directe exige une même fréquence d'échantillonnage aux deux extrémités." },
     analogique:{ t:"Signal analogique", d:"Grandeur continue en temps et en amplitude : une tension qui varie de façon fluide. Fragile face au bruit et aux pertes de câble — chaque copie ou mètre de câble le dégrade un peu." },
     micro:{ t:"Microphone", d:"Transducteur : il transforme la pression acoustique en tension électrique analogique. Dynamique (robuste, scène), condensateur (précis, studio, nécessite une alimentation fantôme 48 V), etc. Son signal de sortie est très faible : quelques millivolts." },
     preampli:{ t:"Préamplificateur", d:"Amplifie le signal très faible du micro (mV) vers le niveau ligne (~1 V) exploitable par le convertisseur. Sa qualité conditionne le bruit de toute la chaîne : un gain propre ici, c'est un enregistrement propre partout." },
@@ -633,6 +717,61 @@ Comparatif des chipsets Dante</button>
   $("inDbfs").addEventListener("input", () => updDb("dbfs"));
   $("fsAlign").addEventListener("change", () => updDb("dbu"));
 
+
+  // ---------- Horloge / compatibilité numérique ----------
+  function setClockMaster(mode) {
+    state.clockMaster = mode;
+    $("clockAdc").classList.toggle("on", mode === "adc");
+    $("clockDante").classList.toggle("on", mode === "dante");
+    $("clockWord").classList.toggle("on", mode === "word");
+    $("wordFs").disabled = mode !== "word";
+    updateClock();
+  }
+
+  function updateClock() {
+    const adc = state.fs;
+    const domain = state.clockFs;
+    const wc = state.wordFs;
+    const box = $("clockStatus");
+    let cls = "ok", title = "", body = "";
+
+    if (state.clockMaster === "adc") {
+      if (adc === domain) {
+        title = "🟢 Domaine cohérent";
+        body = `L'ADC est maître à <b>${(adc/1000).toLocaleString("fr-FR")} kHz</b>. Le domaine numérique sélectionné est identique : liaison PCM directe possible sans SRC.`;
+      } else {
+        cls = "warn";
+        title = "🟠 Fréquences différentes";
+        body = `ADC = <b>${(adc/1000).toLocaleString("fr-FR")} kHz</b>, domaine = <b>${(domain/1000).toLocaleString("fr-FR")} kHz</b>. L'ADC ne peut pas être relié directement à un équipement qui exige ${ (domain/1000).toLocaleString("fr-FR") } kHz : utilisez un SRC ou faites suivre le domaine à l'ADC.`;
+      }
+      body += `<br><span class="mini">PTP, s'il est présent, doit être traité comme une référence d'horloge réseau ; il ne change pas la valeur de fe.</span>`;
+    } else if (state.clockMaster === "dante") {
+      if (adc === domain) {
+        title = "🟢 Dante / PTP compatible";
+        body = `Le domaine Dante est à <b>${(domain/1000).toLocaleString("fr-FR")} kHz</b> et l'ADC est réglé à la même fréquence. PTP fournit la synchronisation d'horloge ; aucun SRC n'est requis pour cette liaison.`;
+      } else {
+        cls = "bad";
+        title = "🔴 SRC requis";
+        body = `Domaine Dante/PTP = <b>${(domain/1000).toLocaleString("fr-FR")} kHz</b>, ADC = <b>${(adc/1000).toLocaleString("fr-FR")} kHz</b>. PTP ne convertit pas la fréquence : un SRC est nécessaire pour relier ces deux domaines, ou il faut régler l'ADC sur ${ (domain/1000).toLocaleString("fr-FR") } kHz.`;
+      }
+    } else {
+      if (adc === wc && wc === domain) {
+        title = "🟢 Word Clock verrouillé";
+        body = `Word Clock = ADC = domaine numérique à <b>${(wc/1000).toLocaleString("fr-FR")} kHz</b>. Les trois éléments partagent la même référence : liaison directe possible sans SRC.`;
+      } else if (adc === wc && domain !== wc) {
+        cls = "warn";
+        title = "🟠 ADC verrouillé, domaine différent";
+        body = `ADC et Word Clock sont à <b>${(wc/1000).toLocaleString("fr-FR")} kHz</b>, mais le domaine numérique est à <b>${(domain/1000).toLocaleString("fr-FR")} kHz</b>. Le clock est cohérent côté ADC, mais une conversion de fréquence est nécessaire pour ce domaine.`;
+      } else {
+        cls = "bad";
+        title = "🔴 Désaccord d'horloge";
+        body = `Word Clock = <b>${(wc/1000).toLocaleString("fr-FR")} kHz</b> alors que l'ADC = <b>${(adc/1000).toLocaleString("fr-FR")} kHz</b>. L'ADC ne peut pas être considéré comme verrouillé sur cette référence. Alignez les fréquences avant la liaison.`;
+      }
+    }
+    box.className = "clock-status " + cls;
+    box.innerHTML = `<div class="title">${title}</div>${body}`;
+  }
+
   // ---------- Signal source : générateur ----------
   function genSignal(t) {
     const f = state.freq, a = state.amp, w = 2 * Math.PI * f * t;
@@ -677,7 +816,10 @@ Comparatif des chipsets Dante</button>
   }
 
   // ---------- Signal unifié ----------
-  function windowDur() { return state.source === "gen" ? 0.004 : 0.025; }
+  function windowDur() {
+    if (state.source !== "gen") return 0.025;
+    return Math.max(0.0002, state.scope.timeDiv * 10);
+  }
   function analogSignal(t) {
     if (state.source === "mic") return micReady ? micAgo(windowDur() - t) : 0;
     if (state.source === "file") return fileAt(t);
@@ -763,10 +905,20 @@ Comparatif des chipsets Dante</button>
 
   function drawGridCommon(x, yTop, yBottom, dur) {
     ctx.strokeStyle = "#21262d"; ctx.lineWidth = 1;
-    const stepMs = dur <= 0.005 ? 0.5 : 5;
-    for (let ms = 0; ms <= dur * 1000; ms += stepMs) {
-      ctx.beginPath(); ctx.moveTo(x(ms / 1000), yTop); ctx.lineTo(x(ms / 1000), yBottom); ctx.stroke();
+    const divs = 10;
+    for (let i = 0; i <= divs; i++) {
+      const xx = (i / divs) * cv.clientWidth;
+      ctx.beginPath(); ctx.moveTo(xx, yTop); ctx.lineTo(xx, yBottom); ctx.stroke();
     }
+    for (let i = 0; i <= 8; i++) {
+      const yy = yTop + (i / 8) * (yBottom - yTop);
+      ctx.beginPath(); ctx.moveTo(0, yy); ctx.lineTo(cv.clientWidth, yy); ctx.stroke();
+    }
+    ctx.strokeStyle = "#30363d";
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(x(dur / 2), yTop); ctx.lineTo(x(dur / 2), yBottom);
+    ctx.stroke();
   }
   function drawQuantGrid(y, W) {
     const levels = Math.pow(2, state.bits);
@@ -841,6 +993,70 @@ Comparatif des chipsets Dante</button>
     ctx.beginPath(); ctx.moveTo(x(lim * Ts), yTop); ctx.lineTo(x(lim * Ts), yBottom); ctx.stroke();
   }
 
+  function findTriggerTime(dur) {
+    const level = state.scope.triggerLevel;
+    const N = 1600;
+    let prev = analogSignal(0) - level;
+    for (let i = 1; i <= N; i++) {
+      const t = dur * i / N;
+      const cur = analogSignal(t) - level;
+      const crossed = state.scope.slope === "rise" ? (prev < 0 && cur >= 0) : (prev > 0 && cur <= 0);
+      if (crossed) return t;
+      prev = cur;
+    }
+    return state.scope.mode === "auto" ? 0 : null;
+  }
+
+  function updateScopeMeasurements() {
+    if (state.source !== "gen") {
+      $("scopeFreq").textContent = "—";
+      $("scopeVpp").textContent = "—";
+      $("scopeVrms").textContent = "—";
+      return;
+    }
+    const dur = windowDur();
+    const N = 2000;
+    let min = Infinity, max = -Infinity, sum2 = 0;
+    let prev = analogSignal(0), crossings = [];
+    for (let i = 0; i <= N; i++) {
+      const v = analogSignal(dur * i / N);
+      min = Math.min(min, v); max = Math.max(max, v); sum2 += v*v;
+      if (i > 0) {
+        const t = dur * i / N;
+        const crossed = state.scope.slope === "rise"
+          ? (prev < state.scope.triggerLevel && v >= state.scope.triggerLevel)
+          : (prev > state.scope.triggerLevel && v <= state.scope.triggerLevel);
+        if (crossed) crossings.push(t);
+      }
+      prev = v;
+    }
+    let f = null;
+    if (crossings.length >= 2) {
+      const periods = [];
+      for (let i=1;i<crossings.length;i++) periods.push(crossings[i]-crossings[i-1]);
+      const p = periods.reduce((a,b)=>a+b,0)/periods.length;
+      if (p > 0) f = 1/p;
+    } else if (state.sigType === "sine") f = state.freq;
+    $("scopeFreq").textContent = f ? (f >= 1000 ? (f/1000).toFixed(2)+" kHz" : f.toFixed(1)+" Hz") : "—";
+    $("scopeVpp").textContent = (max-min).toFixed(3) + " V";
+    $("scopeVrms").textContent = Math.sqrt(sum2/(N+1)).toFixed(3) + " V";
+  }
+
+  function drawScopeLabels(W, H, dur) {
+    ctx.fillStyle = "#8b949e";
+    ctx.font = "10px -apple-system, sans-serif";
+    for (let i=0;i<=10;i++) {
+      const t = (i/10)*dur*1000;
+      const label = t < 1 ? t.toFixed(2)+" ms" : t.toFixed(t < 10 ? 1 : 0)+" ms";
+      ctx.fillText(label, Math.max(2, i/10*W-12), H-5);
+    }
+    ctx.fillStyle = "#58a6ff";
+    ctx.fillText("Time/div : "+(state.scope.timeDiv*1000).toFixed(state.scope.timeDiv < 0.001 ? 2 : 1)+" ms", 6, 13);
+    ctx.fillText("Volt/div : "+state.scope.voltDiv.toFixed(2)+" V", 6, 26);
+    ctx.fillStyle = "#d2a8ff";
+    ctx.fillText("Trigger "+(state.scope.triggerLevel >= 0 ? "+" : "")+state.scope.triggerLevel.toFixed(2), W-90, 13);
+  }
+
   function draw() {
     const W = cv.clientWidth, H = cv.clientHeight;
     const dur = windowDur();
@@ -857,7 +1073,8 @@ Comparatif des chipsets Dante</button>
     ctx.font = "11px -apple-system, sans-serif";
 
     if (state.layout === "overlay") {
-      const midY = H / 2, scaleY = H * 0.42;
+      const midY = H / 2;
+      const scaleY = Math.min(H * 0.42, (H / 8) / Math.max(0.05, state.scope.voltDiv));
       const y = v => midY - v * scaleY;
       drawGridCommon(x, 0, H, dur);
       ctx.strokeStyle = "#30363d";
@@ -877,8 +1094,10 @@ Comparatif des chipsets Dante</button>
       const ph = (H - 2 * labelH - gap - bottomM) / 2;
       const yA0 = labelH;
       const yB0 = labelH + ph + gap + labelH;
-      const yA = v => yA0 + ph / 2 - v * ph * 0.42;
-      const yB = v => yB0 + ph / 2 - v * ph * 0.42;
+      const scaleA = Math.min(ph * 0.42, (ph / 8) / Math.max(0.05, state.scope.voltDiv));
+      const scaleB = scaleA;
+      const yA = v => yA0 + ph / 2 - v * scaleA;
+      const yB = v => yB0 + ph / 2 - v * scaleB;
       ctx.font = "600 11px -apple-system, sans-serif";
       ctx.fillStyle = "#58a6ff";
       ctx.fillText("MONDE ANALOGIQUE — signal continu", 6, 13);
@@ -918,6 +1137,7 @@ Comparatif des chipsets Dante</button>
       ctx.fillText("0 ms", 6, H - 5);
       ctx.fillText((dur * 1000).toFixed(dur <= 0.005 ? 1 : 0) + " ms", W - 46, H - 5);
     }
+    drawScopeLabels(W, H, dur);
     drawFFT();
   }
 
@@ -1046,7 +1266,7 @@ Comparatif des chipsets Dante</button>
     const levels = Math.pow(2, state.bits);
     const lsb = (2 / levels).toFixed(4);
     const fMax = fMaxSignal();
-    const nyqOk = state.fs >= 2 * fMax;
+    const nyqOk = state.fs > 2 * fMax;
     const srcDesc = state.source === "gen"
       ? `Ici : <strong>${state.freq} Hz</strong>, amplitude <strong>${state.amp.toFixed(2)}</strong>.`
       : `Ici : votre <strong>source externe</strong> (${state.source === "mic" ? "micro" : "fichier"}), en direct.`;
@@ -1156,7 +1376,7 @@ Comparatif des chipsets Dante</button>
     const nyq = $("nyquist");
     if (state.source === "gen") {
       const fMax = fMaxSignal();
-      const ok = state.fs >= 2 * fMax;
+      const ok = state.fs > 2 * fMax;
       nyq.className = "stat " + (ok ? "ok" : "bad");
       nyq.querySelector(".v").textContent = ok ? "✓ Respecté" : "✗ Aliasing ! (fmax ≈ " + Math.round(fMax) + " Hz)";
       $("sppOut").textContent = (state.fs / state.freq).toFixed(1);
@@ -1170,12 +1390,22 @@ Comparatif des chipsets Dante</button>
     $("bitrateOut").textContent = Math.round(state.fs * state.bits / 1000) + " kb/s";
     $("chainAdcInfo").innerHTML = "fe " + (state.fs / 1000).toLocaleString("fr-FR") + " kHz · " + state.bits + " bits<br>" +
       Math.round(state.fs * state.bits / 1000) + " kb/s";
+    updateScopeMeasurements();
   }
 
   function refresh() {
     updateStats();
+    updateClock();
     if (guided.active) renderGuided(); else draw();
   }
+
+
+  // ---------- Horloge ----------
+  $("clockAdc").addEventListener("click", () => setClockMaster("adc"));
+  $("clockDante").addEventListener("click", () => setClockMaster("dante"));
+  $("clockWord").addEventListener("click", () => setClockMaster("word"));
+  $("clockFs").addEventListener("change", e => { state.clockFs = +e.target.value; updateClock(); });
+  $("wordFs").addEventListener("change", e => { state.wordFs = +e.target.value; updateClock(); });
 
   // ---------- Contrôles ----------
   $("sigType").addEventListener("change", e => { state.sigType = e.target.value; refresh(); });
@@ -1272,6 +1502,43 @@ Comparatif des chipsets Dante</button>
       }, () => { $("fileStatus").textContent = "❌ Format non lisible."; });
     };
     reader.readAsArrayBuffer(f);
+  });
+
+  // ---------- Oscilloscope ----------
+  document.querySelectorAll("#scopeTimeSeg button").forEach(btn => btn.addEventListener("click", () => {
+    state.scope.timeDiv = +btn.dataset.time;
+    document.querySelectorAll("#scopeTimeSeg button").forEach(b => b.classList.toggle("on", b === btn));
+    refresh();
+  }));
+  document.querySelectorAll("#scopeVoltSeg button").forEach(btn => btn.addEventListener("click", () => {
+    state.scope.voltDiv = +btn.dataset.volt;
+    document.querySelectorAll("#scopeVoltSeg button").forEach(b => b.classList.toggle("on", b === btn));
+    refresh();
+  }));
+  $("triggerLevel").addEventListener("input", e => {
+    state.scope.triggerLevel = +e.target.value;
+    $("triggerOut").textContent = state.scope.triggerLevel.toFixed(2);
+    draw();
+  });
+  $("triggerRise").addEventListener("click", () => {
+    state.scope.slope = "rise";
+    $("triggerRise").classList.add("on"); $("triggerFall").classList.remove("on");
+    draw();
+  });
+  $("triggerFall").addEventListener("click", () => {
+    state.scope.slope = "fall";
+    $("triggerFall").classList.add("on"); $("triggerRise").classList.remove("on");
+    draw();
+  });
+  $("triggerAuto").addEventListener("click", () => {
+    state.scope.mode = "auto";
+    $("triggerAuto").classList.add("on"); $("triggerNormal").classList.remove("on");
+    draw();
+  });
+  $("triggerNormal").addEventListener("click", () => {
+    state.scope.mode = "normal";
+    $("triggerNormal").classList.add("on"); $("triggerAuto").classList.remove("on");
+    draw();
   });
 
   // ---------- Presets ----------
@@ -1380,6 +1647,10 @@ Comparatif des chipsets Dante</button>
   updDante();
   updDelay("ms");
   updDb("dbu");
+  setClockMaster("adc");
+  $("clockFs").value = state.clockFs;
+  $("wordFs").value = state.wordFs;
+  updateClock();
   ensureLoop();
 })();
 </script>
