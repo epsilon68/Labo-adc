@@ -1,0 +1,1673 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Labo ADC — Conversion Analogique → Numérique</title>
+<style>
+  :root {
+    --bg:#0d1117; --panel:#161b22; --border:#30363d; --text:#e6edf3; --muted:#8b949e;
+    --analog:#58a6ff; --sample:#f85149; --quant:#3fb950; --recon:#d29922; --error:#bc8cff; --accent:#1f6feb;
+  }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { margin:0; padding:0; background:var(--bg); color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",sans-serif; overscroll-behavior:none; }
+  header { padding:calc(env(safe-area-inset-top) + 14px) 16px 12px; border-bottom:1px solid var(--border); background:var(--panel); }
+  header h1 { margin:0; font-size:1.15rem; font-weight:600; }
+  header p { margin:4px 0 0; font-size:0.8rem; color:var(--muted); }
+  main { display:grid; grid-template-columns:340px 1fr; gap:14px;
+    padding:14px 16px calc(env(safe-area-inset-bottom) + 20px); max-width:1400px; margin:0 auto; }
+  @media (max-width:900px) { main { grid-template-columns:1fr; } #stage { order:-1; } }
+  .card { background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:14px; }
+  .card h2 { margin:0 0 10px; font-size:0.75rem; text-transform:uppercase; letter-spacing:0.08em; color:var(--muted); font-weight:600; }
+  .ctrl { margin-bottom:14px; }
+  .ctrl label { display:flex; justify-content:space-between; font-size:0.85rem; margin-bottom:6px; }
+  .ctrl label output { color:var(--analog); font-variant-numeric:tabular-nums; font-weight:600; }
+  input[type=range] { width:100%; height:34px; margin:0; accent-color:var(--accent); cursor:pointer; }
+  input[type=text],input[type=file],input[type=number] { width:100%; padding:10px; border-radius:10px; border:1px solid var(--border);
+    background:#0d1117; color:var(--text); font-size:0.85rem; font-family:inherit; }
+  select,button { width:100%; padding:11px; border-radius:10px; border:1px solid var(--border);
+    background:#0d1117; color:var(--text); font-size:0.9rem; font-family:inherit; }
+  .toggles { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .tog { display:flex; align-items:center; gap:8px; padding:9px 10px; border-radius:10px;
+    border:1px solid var(--border); background:#0d1117; font-size:0.8rem; cursor:pointer; user-select:none; }
+  #togWrap.disabled { opacity:0.4; pointer-events:none; }
+  .tog input { width:18px; height:18px; accent-color:var(--accent); }
+  .dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+  .seg { display:grid; gap:6px; margin-bottom:12px; }
+  .seg.c2 { grid-template-columns:1fr 1fr; }
+  .seg.c3 { grid-template-columns:1fr 1fr 1fr; }
+  .seg button { background:#0d1117; border:1px solid var(--border); font-size:0.78rem; font-weight:600; cursor:pointer; padding:9px 4px; }
+  .seg button.on { background:var(--accent); border-color:var(--accent); color:#fff; }
+  #stage { display:flex; flex-direction:column; gap:14px; min-width:0; }
+  #canvasWrap,#fftWrap { position:relative; padding:8px; }
+  canvas { width:100%; display:block; border-radius:8px; touch-action:none; }
+  .stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:10px; }
+  .stat { background:#0d1117; border:1px solid var(--border); border-radius:10px; padding:10px 12px; }
+  .stat .k { font-size:0.7rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.05em; }
+  .stat .v { font-size:1.05rem; font-weight:700; font-variant-numeric:tabular-nums; margin-top:3px; }
+  #nyquist.ok .v { color:var(--quant); }
+  #nyquist.bad .v { color:var(--sample); }
+  .audio-btns { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .audio-btns button,#guidedBtn,#glosBtn,#chipBtn { background:var(--accent); border:none; font-weight:600; cursor:pointer; }
+  .audio-btns button:active,#guidedBtn:active { opacity:0.8; }
+  .audio-btns button.playing { background:var(--sample); }
+  .audio-btns button:disabled { opacity:0.35; }
+  #guidedBtn { background:#6e40c9; margin-top:12px; }
+  #glosBtn { background:#0d1117; border:1px solid var(--border); margin-top:8px; }
+  #chipBtn { background:#0d1117; border:1px solid var(--border); margin-top:10px; }
+  .legend-note { font-size:0.75rem; color:var(--muted); margin-top:10px; line-height:1.5; }
+  .row2 { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px; }
+  .status { font-size:0.78rem; color:var(--muted); margin-top:8px; line-height:1.4; }
+
+
+  /* ---- Horloge / compatibilité numérique ---- */
+  .clock-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .clock-grid .full { grid-column:1/-1; }
+  .clock-status { margin-top:10px; padding:10px 12px; border-radius:10px; border:1px solid var(--border);
+    background:#0d1117; font-size:0.82rem; line-height:1.55; }
+  .clock-status.ok { border-color:rgba(63,185,80,0.55); }
+  .clock-status.warn { border-color:rgba(210,153,34,0.65); }
+  .clock-status.bad { border-color:rgba(248,81,73,0.65); }
+  .clock-status .title { font-weight:700; margin-bottom:3px; }
+
+  /* ---- Calculateurs AV ---- */
+  .calc-sec { font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em;
+    color:var(--analog); margin:16px 0 8px; }
+  .calc-sec:first-of-type { margin-top:2px; }
+  .calc-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:8px; }
+  .calc-grid label { font-size:0.7rem; color:var(--muted); display:flex; flex-direction:column; gap:4px; }
+  .calc-grid input,.calc-grid select { padding:8px; font-size:0.85rem; }
+  .calc-result { margin-top:8px; background:#0d1117; border:1px solid var(--border); border-radius:10px;
+    padding:10px 12px; font-size:0.82rem; line-height:1.55; }
+  .calc-result b { color:var(--quant); font-variant-numeric:tabular-nums; }
+  .calc-result .mini { color:var(--muted); font-size:0.7rem; }
+
+  /* ---- Glossaire & overlays ---- */
+  .term { color:#79c0ff; cursor:pointer; text-decoration:underline dotted; text-underline-offset:3px; }
+  .overlay { display:none; position:fixed; inset:0; z-index:50; background:rgba(0,0,0,0.65);
+    backdrop-filter:blur(3px); padding:20px; align-items:center; justify-content:center; }
+  .overlay.open { display:flex; }
+  .overlay-card { background:var(--panel); border:1px solid #6e40c9; border-radius:16px;
+    padding:18px; max-width:460px; width:100%; max-height:76vh; overflow-y:auto; }
+  .overlay-card h3 { margin:0 0 8px; font-size:1.05rem; color:#d2a8ff; }
+  #glosBody { font-size:0.88rem; line-height:1.65; margin:0 0 14px; }
+  #glosBody .g-item { display:block; padding:7px 0; border-bottom:1px solid var(--border); }
+  .ov-btn { width:auto; padding:9px 18px; background:#6e40c9; border:none; font-weight:600; cursor:pointer; }
+  #glosBack { background:#0d1117; border:1px solid var(--border); margin-right:8px; }
+
+  /* ---- Tableau chipsets ---- */
+  .chip-scroll { overflow-x:auto; margin-bottom:12px; }
+  .chip-table { border-collapse:collapse; font-size:0.75rem; font-variant-numeric:tabular-nums; width:100%; min-width:380px; }
+  .chip-table th,.chip-table td { padding:7px 8px; text-align:left; border-bottom:1px solid var(--border); white-space:nowrap; }
+  .chip-table th { color:var(--muted); font-weight:600; text-transform:uppercase; font-size:0.62rem; letter-spacing:0.05em; }
+  .chip-table td b { color:var(--text); }
+  .chip-table td.lat { color:var(--quant); }
+  .chip-table tr.old td { color:var(--muted); }
+  .chip-sec { font-size:0.68rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em;
+    color:var(--analog); margin:12px 0 6px; }
+  .chip-note { font-size:0.72rem; color:var(--muted); line-height:1.5; }
+
+  /* ---- Schéma de chaîne audio ---- */
+  .chain { display:flex; flex-direction:column; align-items:stretch; position:relative; }
+  .chain-row { display:flex; align-items:center; gap:10px; }
+  .chain-led { width:12px; flex-shrink:0; display:flex; justify-content:center; }
+  .chain-led i { width:10px; height:10px; border-radius:50%; background:var(--border); transition:background 0.15s, box-shadow 0.15s; }
+  .chain-row.lit .chain-led i { background:#fff; box-shadow:0 0 8px 2px rgba(88,166,255,0.9); }
+  .chain-block { flex:1; display:flex; align-items:center; gap:10px; padding:10px 12px;
+    border-radius:12px; border:1.5px solid; background:#0d1117; cursor:pointer; user-select:none; }
+  .chain-block:active { filter:brightness(1.4); }
+  .chain-block.an { border-color:rgba(88,166,255,0.55); }
+  .chain-block.dig { border-color:rgba(63,185,80,0.55); }
+  .chain-icon { font-size:1.25rem; flex-shrink:0; }
+  .chain-name { font-weight:700; font-size:0.88rem; }
+  .chain-sub { font-size:0.68rem; color:var(--muted); }
+  .chain-info { margin-left:auto; font-size:0.68rem; color:var(--quant); font-variant-numeric:tabular-nums;
+    text-align:right; line-height:1.35; flex-shrink:0; }
+  .chain-arrow { text-align:center; color:var(--muted); font-size:0.85rem; line-height:1; padding:2px 0 2px 22px; }
+  .chain-badge { font-size:0.6rem; font-weight:700; padding:2px 7px; border-radius:20px; margin-left:8px; vertical-align:middle; }
+  .badge-an { background:rgba(88,166,255,0.15); color:var(--analog); border:1px solid rgba(88,166,255,0.4); }
+  .badge-dig { background:rgba(63,185,80,0.15); color:var(--quant); border:1px solid rgba(63,185,80,0.4); }
+
+  /* ---- Mode guidé ---- */
+  #guidedPanel { display:none; border-color:#6e40c9; }
+  #guidedPanel.active { display:block; }
+  #guidedPanel .g-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+  #guidedTitle { font-size:1rem; font-weight:700; color:#d2a8ff; margin:0; }
+  #guidedClose { width:auto; padding:6px 12px; font-size:0.8rem; font-weight:600; background:#0d1117; border:1px solid var(--border); }
+  #guidedText { font-size:0.88rem; line-height:1.65; color:var(--text); margin:0 0 12px; }
+  #guidedText strong { color:var(--analog); }
+  #guidedText .hl-r { color:var(--sample); font-weight:600; }
+  #guidedText .hl-g { color:var(--quant); font-weight:600; }
+  #guidedText .hl-y { color:var(--recon); font-weight:600; }
+  #guidedText .hl-v { color:var(--error); font-weight:600; }
+  .g-nav { display:flex; align-items:center; gap:10px; }
+  .g-nav button { width:auto; flex:1; background:#6e40c9; border:none; font-weight:600; cursor:pointer; }
+  .g-nav button:disabled { opacity:0.35; }
+  .g-dots { display:flex; gap:6px; padding:0 4px; }
+  .g-dots span { width:9px; height:9px; border-radius:50%; background:var(--border); transition:background 0.2s; }
+  .g-dots span.on { background:#d2a8ff; }
+  #bitTable { display:none; margin-top:12px; overflow-x:auto; }
+  #bitTable.show { display:block; }
+  #bitTable table { width:100%; border-collapse:collapse; font-size:0.78rem; font-variant-numeric:tabular-nums; }
+  #bitTable th,#bitTable td { padding:6px 8px; text-align:right; border-bottom:1px solid var(--border); white-space:nowrap; }
+  #bitTable th { color:var(--muted); font-weight:600; text-transform:uppercase; font-size:0.65rem; letter-spacing:0.05em; }
+  #bitTable td.bin { font-family:ui-monospace,"SF Mono",Menlo,monospace; color:var(--quant); letter-spacing:0.1em; }
+</style>
+<link rel="manifest" href="./manifest.json">
+<link rel="apple-touch-icon" href="./icon.png">
+<meta name="theme-color" content="#161b22">
+</head>
+<body>
+<header>
+  <h1>⚡ Labo ADC — Analogique → Numérique</h1>
+  <p>V8 · Horloge / PTP / SRC · Calculateurs AV · Chaîne audio · Chipsets Dante · FFT · Glossaire</p>
+</header>
+<main>
+  <section id="controls">
+
+    <div class="card">
+      <h2>Source du signal</h2>
+      <div class="seg c3" id="srcSeg">
+        <button id="srcGen" class="on">🎛 Générateur</button>
+        <button id="srcMic">🎤 Micro</button>
+        <button id="srcFile">📁 Fichier</button>
+      </div>
+      <div id="genCtrls">
+        <div class="ctrl">
+          <label>Type de signal</label>
+          <select id="sigType">
+            <option value="sine">Sinus pur</option>
+            <option value="triangle">Triangle</option>
+            <option value="square">Carré</option>
+            <option value="composite">Composite (2 harmoniques)</option>
+            <option value="voice">Pseudo-voix (3 harmoniques)</option>
+          </select>
+        </div>
+        <div class="ctrl" style="margin-bottom:0">
+          <label>Fréquence du signal <output id="freqOut">440 Hz</output></label>
+          <input type="range" id="freq" min="100" max="8000" step="10" value="440">
+        </div>
+      </div>
+      <div id="micRow" style="display:none">
+        <button id="micBtn">🎤 Activer le micro</button>
+        <div class="status" id="micStatus">Le micro devient la source « analogique » en direct. Si l'activation échoue ici, ouvrez le fichier dans Safari.</div>
+      </div>
+      <div id="fileRow" style="display:none">
+        <input type="file" id="fileInput" accept="audio/*">
+        <div class="status" id="fileStatus">Chargez un fichier audio (il reste sur votre appareil, lecture en boucle).</div>
+      </div>
+      <div class="ctrl" style="margin:12px 0 0">
+        <label>Amplitude <output id="ampOut">0.90</output></label>
+        <input type="range" id="amp" min="10" max="100" step="1" value="90">
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:14px">
+      <h2>Convertisseur A/N</h2>
+      <div class="ctrl">
+        <label>Fréquence d'échantillonnage <output id="fsOut">8000 Hz</output></label>
+        <input type="range" id="fs" min="1000" max="48000" step="100" value="8000">
+      </div>
+      <div class="ctrl">
+        <label>Résolution (quantification) <output id="bitsOut">8 bits</output></label>
+        <input type="range" id="bits" min="1" max="16" step="1" value="8">
+      </div>
+      <div class="ctrl" style="margin-bottom:0">
+        <label>Reconstruction</label>
+        <div class="seg c3" id="reconSeg" style="margin-bottom:0">
+          <button id="recZoh" class="on">Bloqueur</button>
+          <button id="recLin">Linéaire</button>
+          <button id="recSinc">Sinc</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:14px">
+      <h2>Configurations</h2>
+      <select id="presetSelect"></select>
+      <input type="text" id="presetName" placeholder="Nom de votre preset…" style="margin-top:8px">
+      <div class="row2">
+        <button id="presetSave">💾 Enregistrer</button>
+        <button id="presetDel">🗑 Supprimer</button>
+      </div>
+      <div class="status">Vos presets sont stockés localement sur cet appareil uniquement.</div>
+    </div>
+
+    <div class="card" style="margin-top:14px" id="scopeControls">
+      <h2>Oscilloscope</h2>
+      <div class="seg c3" id="scopeTimeSeg">
+        <button type="button" data-time="0.0002">200 µs/div</button>
+        <button type="button" data-time="0.001">1 ms/div</button>
+        <button type="button" data-time="0.005" class="on">5 ms/div</button>
+      </div>
+      <div class="seg c3" id="scopeVoltSeg">
+        <button type="button" data-volt="0.1">0,1 V/div</button>
+        <button type="button" data-volt="0.25" class="on">0,25 V/div</button>
+        <button type="button" data-volt="0.5">0,5 V/div</button>
+      </div>
+      <div class="ctrl">
+        <label>Niveau de trigger <output id="triggerOut">0,00</output></label>
+        <input type="range" id="triggerLevel" min="-1" max="1" step="0.01" value="0">
+      </div>
+      <div class="seg c2" id="triggerSlopeSeg">
+        <button type="button" id="triggerRise" class="on">↗ Montant</button>
+        <button type="button" id="triggerFall">↘ Descendant</button>
+      </div>
+      <div class="seg c2" id="triggerModeSeg">
+        <button type="button" id="triggerAuto" class="on">Auto</button>
+        <button type="button" id="triggerNormal">Normal</button>
+      </div>
+      <div class="stats" style="margin-top:8px">
+        <div class="stat"><div class="k">Fréquence mesurée</div><div class="v" id="scopeFreq">—</div></div>
+        <div class="stat"><div class="k">Vpp</div><div class="v" id="scopeVpp">—</div></div>
+        <div class="stat"><div class="k">Vrms</div><div class="v" id="scopeVrms">—</div></div>
+      </div>
+      <div class="status">La grille de l'oscilloscope représente une échelle de temps et d'amplitude. Le trigger stabilise l'affichage du signal.</div>
+    </div>
+
+    <div class="card" style="margin-top:14px">
+      <h2>Affichage</h2>
+      <div class="seg c2" id="layoutSeg">
+        <button id="laySplit" class="on">⬍ Séparé</button>
+        <button id="layOverlay">⧉ Superposé</button>
+      </div>
+      <div class="toggles" id="togWrap">
+        <label class="tog"><input type="checkbox" id="showAnalog" checked><span class="dot" style="background:var(--analog)"></span>Analogique</label>
+        <label class="tog"><input type="checkbox" id="showQuantGrid"><span class="dot" style="background:var(--quant)"></span>Grille quant.</label>
+        <label class="tog"><input type="checkbox" id="showSamples" checked><span class="dot" style="background:var(--sample)"></span>Échantillons</label>
+        <label class="tog"><input type="checkbox" id="showRecon" checked><span class="dot" style="background:var(--recon)"></span>Reconstruit</label>
+        <label class="tog"><input type="checkbox" id="showError"><span class="dot" style="background:var(--error)"></span>Erreur</label>
+      </div>
+      <div class="legend-note" id="togNote">
+        💡 Descendez fe sous 2× la fréquence du signal pour observer le <span class="term" data-t="aliasing">repliement spectral (aliasing)</span>. Réduisez les bits pour voir le <span class="term" data-t="quantification">bruit de quantification</span>.
+      </div>
+      <button id="guidedBtn">🎓 Lancer le mode guidé pas-à-pas</button>
+      <button id="glosBtn">📖 Glossaire des termes techniques</button>
+    </div>
+
+    <div class="card" style="margin-top:14px">
+      <h2>Écoute comparative</h2>
+      <div class="audio-btns">
+        <button id="playOriginal">▶ Original</button>
+        <button id="playDigital">▶ Numérique</button>
+      </div>
+      <div class="legend-note" id="audioNote">Le signal « numérique » est échantillonné, quantifié puis reconstruit selon vos réglages — comparez bloqueur, linéaire et sinc !</div>
+    </div>
+  </section>
+
+  <section id="stage">
+    <div class="card" id="guidedPanel">
+      <div class="g-head">
+        <h3 id="guidedTitle">Étape 1 — Le signal analogique</h3>
+        <button id="guidedClose">✕ Quitter</button>
+      </div>
+      <p id="guidedText"></p>
+      <div id="bitTable"></div>
+      <div class="g-nav">
+        <button id="gPrev">◀ Précédent</button>
+        <div class="g-dots" id="gDots"></div>
+        <button id="gNext">Suivant ▶</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>La chaîne audio complète — touchez un bloc</h2>
+      <div class="chain" id="chain">
+        <div class="chain-row" data-t="micro"><div class="chain-led"><i></i></div>
+          <div class="chain-block an"><span class="chain-icon">🎤</span>
+            <div><div class="chain-name">Micro<span class="chain-badge badge-an">analogique</span></div>
+            <div class="chain-sub">Convertit le son en tension électrique</div></div>
+          </div></div>
+        <div class="chain-arrow">↓</div>
+        <div class="chain-row" data-t="preampli"><div class="chain-led"><i></i></div>
+          <div class="chain-block an"><span class="chain-icon">🎚</span>
+            <div><div class="chain-name">Préampli<span class="chain-badge badge-an">analogique</span></div>
+            <div class="chain-sub">Amplifie le signal micro vers le niveau ligne</div></div>
+          </div></div>
+        <div class="chain-arrow">↓</div>
+        <div class="chain-row" data-t="adc"><div class="chain-led"><i></i></div>
+          <div class="chain-block dig"><span class="chain-icon">⚡</span>
+            <div><div class="chain-name">Convertisseur A/N<span class="chain-badge badge-dig">numérique</span></div>
+            <div class="chain-sub">Échantillonnage + quantification → PCM</div></div>
+            <div class="chain-info" id="chainAdcInfo">—</div>
+          </div></div>
+        <div class="chain-arrow">↓</div>
+        <div class="chain-row" data-t="dsp"><div class="chain-led"><i></i></div>
+          <div class="chain-block dig"><span class="chain-icon">🧠</span>
+            <div><div class="chain-name">DSP<span class="chain-badge badge-dig">numérique</span></div>
+            <div class="chain-sub">Traitement : égalisation, dynamique, mixage</div></div>
+          </div></div>
+        <div class="chain-arrow">↓</div>
+        <div class="chain-row" data-t="dante"><div class="chain-led"><i></i></div>
+          <div class="chain-block dig"><span class="chain-icon">🌐</span>
+            <div><div class="chain-name">Réseau Dante<span class="chain-badge badge-dig">numérique</span></div>
+            <div class="chain-sub">Audio sur IP : centaines de canaux sur Ethernet</div></div>
+          </div></div>
+        <div class="chain-arrow">↓</div>
+        <div class="chain-row" data-t="console"><div class="chain-led"><i></i></div>
+          <div class="chain-block dig"><span class="chain-icon">🎛</span>
+            <div><div class="chain-name">Console<span class="chain-badge badge-dig">numérique</span></div>
+            <div class="chain-sub">Mixage, routage, retour vers l'analogique (N/A)</div></div>
+          </div></div>
+        <div class="chain-arrow">↓</div>
+        <div class="chain-row" data-t="ampli"><div class="chain-led"><i></i></div>
+          <div class="chain-block an"><span class="chain-icon">🔋</span>
+            <div><div class="chain-name">Amplificateur<span class="chain-badge badge-an">analogique</span></div>
+            <div class="chain-sub">Amplifie en puissance pour les haut-parleurs</div></div>
+          </div></div>
+        <div class="chain-arrow">↓</div>
+        <div class="chain-row" data-t="hp"><div class="chain-led"><i></i></div>
+          <div class="chain-block an"><span class="chain-icon">🔊</span>
+            <div><div class="chain-name">Haut-parleur<span class="chain-badge badge-an">analogique</span></div>
+            <div class="chain-sub">Convertit l'électricité en ondes sonores</div></div>
+          </div></div>
+      </div>
+      <div class="legend-note">Le point lumineux suit le trajet du signal. Frontières bleues = domaine <span class="term" data-t="analogique">analogique</span>, vertes = domaine <span class="term" data-t="pcm">numérique</span>. La conversion A/N étudiée dans ce labo se produit dans le bloc ⚡.</div>
+      <button id="chipBtn">🔌 
+
+Comparatif des chipsets Dante</button>
+<button
+  type="button"
+  onclick="window.location.href='dante.html'"
+  style="
+    width:100%;
+    margin-top:10px;
+    padding:12px;
+    border:1px solid #3fb950;
+    border-radius:10px;
+    background:#0d1117;
+    color:#3fb950;
+    font-weight:700;">
+  🎓 Mission Dante — Niveau 1
+</button>
+<button
+  type="button"
+  onclick="window.location.href='installation-av.html'"
+  style="
+    width:100%;
+    margin-top:10px;
+    padding:12px;
+    border:1px solid #d29922;
+    border-radius:10px;
+    background:#0d1117;
+    color:#d29922;
+    font-weight:700;">
+  🏢 Mission AV-01 — Installation complète
+</button>
+    </div>
+
+    <div class="card" id="canvasWrap">
+      <canvas id="cv"></canvas>
+    </div>
+
+    <div class="card" id="fftWrap">
+      <h2 style="padding:6px 6px 0">Spectre du signal numérique</h2>
+      <canvas id="fftCv"></canvas>
+      <div class="legend-note" style="padding:0 6px 6px">
+        <span class="term" data-t="fft">Transformée de Fourier (FFT)</span> calculée sur 1024 échantillons quantifiés. Les marqueurs bleus indiquent les vraies fréquences du signal ; un marqueur rouge ↩ signale une fréquence repliée par <span class="term" data-t="aliasing">aliasing</span>. Axe logarithmique, limite droite = fe/2.
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Mesures en temps réel</h2>
+      <div class="stats">
+        <div class="stat" id="nyquist"><div class="k">Critère de Nyquist</div><div class="v">—</div></div>
+        <div class="stat"><div class="k">Niveaux de quantification</div><div class="v" id="levelsOut">256</div></div>
+        <div class="stat"><div class="k">SQNR théorique</div><div class="v" id="sqnrOut">49.9 dB</div></div>
+        <div class="stat"><div class="k">Débit binaire (mono)</div><div class="v" id="bitrateOut">64 kb/s</div></div>
+        <div class="stat"><div class="k">Échantillons / période</div><div class="v" id="sppOut">18.2</div></div>
+      </div>
+    </div>
+
+
+    <div class="card">
+      <h2>⏱ Horloge & compatibilité numérique</h2>
+      <div class="ctrl">
+        <label>Clock Master</label>
+        <div class="seg c3" id="clockSeg" style="margin-bottom:0">
+          <button id="clockAdc" class="on">ADC local</button>
+          <button id="clockDante">Dante / PTP</button>
+          <button id="clockWord">Word Clock</button>
+        </div>
+      </div>
+      <div class="clock-grid">
+        <label class="ctrl" style="margin:0">
+          <span style="font-size:.7rem;color:var(--muted)">Fréquence du domaine numérique</span>
+          <select id="clockFs">
+            <option value="44100">44,1 kHz</option>
+            <option value="48000" selected>48 kHz</option>
+            <option value="96000">96 kHz</option>
+            <option value="192000">192 kHz</option>
+          </select>
+        </label>
+        <label class="ctrl" style="margin:0">
+          <span style="font-size:.7rem;color:var(--muted)">Word Clock externe</span>
+          <select id="wordFs">
+            <option value="44100">44,1 kHz</option>
+            <option value="48000" selected>48 kHz</option>
+            <option value="96000">96 kHz</option>
+            <option value="192000">192 kHz</option>
+          </select>
+        </label>
+      </div>
+      <div class="clock-status" id="clockStatus">—</div>
+      <div class="legend-note">
+        <span class="term" data-t="ptp">PTP</span> synchronise les horloges des équipements Dante ; il ne convertit pas une fréquence d'échantillonnage en une autre.
+        Si deux domaines audio utilisent des fréquences différentes, un <span class="term" data-t="src">SRC</span> est nécessaire pour faire le pont.
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>🧮 Calculateurs AV</h2>
+
+      <div class="calc-sec">Budget de latence de la chaîne</div>
+      <div class="calc-grid">
+        <label>ADC (filtres), ms<input type="number" id="latAdc" value="1.0" step="0.1" min="0" inputmode="decimal"></label>
+        <label>DSP, ms<input type="number" id="latDsp" value="0.5" step="0.1" min="0" inputmode="decimal"></label>
+        <label>Réseau Dante, ms<input type="number" id="latDante" value="1.0" step="0.1" min="0" inputmode="decimal"></label>
+        <label>Console, ms<input type="number" id="latConsole" value="1.0" step="0.1" min="0" inputmode="decimal"></label>
+        <label>N/A (DAC), ms<input type="number" id="latDac" value="1.0" step="0.1" min="0" inputmode="decimal"></label>
+      </div>
+      <div class="calc-result" id="latOut">—</div>
+
+      <div class="calc-sec">Débit réseau Dante</div>
+      <div class="calc-grid">
+        <label>Canaux<input type="number" id="dCh" value="64" min="1" inputmode="numeric"></label>
+        <label>fe<select id="dFs">
+          <option value="44100">44,1 kHz</option>
+          <option value="48000" selected>48 kHz</option>
+          <option value="88200">88,2 kHz</option>
+          <option value="96000">96 kHz</option>
+          <option value="192000">192 kHz</option>
+        </select></label>
+        <label>Bits<select id="dBits">
+          <option value="16">16 bits</option>
+          <option value="24" selected>24 bits</option>
+          <option value="32">32 bits</option>
+        </select></label>
+      </div>
+      <div class="calc-result" id="danteOut">—</div>
+
+      <div class="calc-sec">Délai d'alignement — ms ↔ mètres</div>
+      <div class="calc-grid">
+        <label>Température (°C)<input type="number" id="tempC" value="20" step="1" inputmode="decimal"></label>
+        <label>Délai (ms)<input type="number" id="delayMs" value="10" step="0.1" min="0" inputmode="decimal"></label>
+        <label>Distance (m)<input type="number" id="distM" value="3.43" step="0.01" min="0" inputmode="decimal"></label>
+      </div>
+      <div class="calc-result" id="delayOut">—</div>
+
+      <div class="calc-sec">Niveaux — dBFS ↔ dBu ↔ dBV</div>
+      <div class="calc-grid">
+        <label>dBu<input type="number" id="inDbu" value="4" step="0.1" inputmode="decimal"></label>
+        <label>dBV<input type="number" id="inDbv" value="1.8" step="0.1" inputmode="decimal"></label>
+        <label>dBFS<input type="number" id="inDbfs" value="-20" step="0.1" max="0" inputmode="decimal"></label>
+        <label>Alignement 0 dBFS<select id="fsAlign">
+          <option value="18">+18 dBu (EBU/broadcast)</option>
+          <option value="24" selected>+24 dBu (studio US)</option>
+        </select></label>
+      </div>
+      <div class="calc-result" id="dbOut">—</div>
+
+      <div class="legend-note">Ces quatre outils couvrent les calculs les plus fréquents en intégration AV : latence de bout en bout, charge réseau, alignement temporel des haut-parleurs et correspondance de niveaux entre mondes <span class="term" data-t="analogique">analogique</span> et <span class="term" data-t="pcm">numérique</span>.</div>
+    </div>
+  </section>
+</main>
+
+<div id="glosOverlay" class="overlay">
+  <div class="overlay-card">
+    <h3 id="glosTitle">Glossaire</h3>
+    <div id="glosBody"></div>
+    <button id="glosBack" class="ov-btn" style="display:none">← Retour</button>
+    <button id="glosClose" class="ov-btn">Fermer</button>
+  </div>
+</div>
+
+<div id="chipOverlay" class="overlay">
+  <div class="overlay-card">
+    <h3>🔌 Chipsets & modules Dante (Audinate)</h3>
+    <div class="chip-scroll"><div id="chipTable"></div></div>
+    <div class="chip-note">Tous transportent de l'audio <span class="term" data-t="pcm">PCM</span> non compressé (16/24/32 bits) : le flux produit par le convertisseur A/N circule sur le réseau sans aucune perte. Latence Dante totale configurable, généralement 1 ms. Données : fiches techniques Audinate.</div>
+    <button id="chipClose" class="ov-btn" style="margin-top:12px">Fermer</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  "use strict";
+
+  const state = {
+    source:"gen", sigType:"sine", freq:440, amp:0.9, fs:8000, bits:8,
+    recon:"zoh", layout:"split",
+    show:{ analog:true, quantGrid:false, samples:true, recon:true, error:false },
+    clockMaster:"adc", clockFs:48000, wordFs:48000,
+    scope:{ timeDiv:0.005, voltDiv:0.25, triggerLevel:0, slope:"rise", mode:"auto" }
+  };
+
+  const guided = { active:false, step:1, progress:0, lastT:0 };
+  const STEP_COUNT = 5, ANIM_MS = 4500;
+  const chain = { pos:0, timer:0 };
+
+  const $ = id => document.getElementById(id);
+  const cv = $("cv"), ctx = cv.getContext("2d");
+  const fftCv = $("fftCv"), fctx = fftCv.getContext("2d");
+  if (!ctx || !fctx) throw new Error("AudioLab: Canvas 2D indisponible");
+
+  // ---------- Chipsets Dante ----------
+  const CHIPSETS = [
+    { sec:"Gamme actuelle" },
+    { name:"Ultimo (X2 / X4)", fmt:"Chip", ch:"2×2 ou 4×4", fs:"96 kHz", lat:"1 ms", note:"Endpoints : enceintes, amplis, plaques murales" },
+    { name:"Dante Pro S1", fmt:"Chip (nouveau)", ch:"2×2 ou 4×4", fs:"96 kHz", lat:"1 ms", note:"Successeur moderne d'Ultimo" },
+    { name:"Broadway", fmt:"Chip", ch:"8×8 ou 16×16", fs:"192 kHz", lat:"0,25 ms", note:"Mixeurs compacts, DSP, conférence — GbE + AES67" },
+    { name:"Brooklyn 3", fmt:"Module", ch:"jusqu'à 64×64", fs:"192 kHz", lat:"< 1 ms", note:"Consoles et interfaces haut de gamme" },
+    { name:"Dante IP Core", fmt:"IP pour FPGA (AMD/Xilinx)", ch:"jusqu'à 512×512", fs:"192 kHz", lat:"< 1 ms, sync < 1 µs", note:"Grosses consoles, intégration profonde" },
+    { name:"Embedded Platform", fmt:"SDK logiciel (Linux x86/ARM)", ch:"jusqu'à 128×128", fs:"96 kHz", lat:"1–5 ms", note:"Sans chip dédié, sur processeur standard" },
+    { sec:"Gamme historique" },
+    { name:"Brooklyn II", fmt:"Module", ch:"jusqu'à 64×64", fs:"192 kHz", lat:"0,25 ms", note:"La référence des années 2010", old:true },
+    { name:"Dante HC", fmt:"Carte haute densité", ch:"haute capacité", fs:"96 kHz", lat:"—", note:"Remplacée par IP Core", old:true },
+    { name:"Dante PCIe", fmt:"Carte PC", ch:"multicanal", fs:"192 kHz", lat:"—", note:"Enregistrement/lecture sur PC", old:true },
+    { name:"MY-16", fmt:"Carte d'extension", ch:"16×16", fs:"96 kHz", lat:"—", note:"Consoles Yamaha", old:true }
+  ];
+
+  function buildChipTable() {
+    let html = "", open = false;
+    CHIPSETS.forEach(c => {
+      if (c.sec) {
+        if (open) html += "</tbody></table>";
+        html += `<div class="chip-sec">${c.sec}</div>
+          <table class="chip-table"><thead><tr><th>Produit</th><th>Format</th><th>Canaux</th><th>fe max</th><th>Latence</th></tr></thead><tbody>`;
+        open = true;
+      } else {
+        html += `<tr class="${c.old ? "old" : ""}" title="${c.note}"><td><b>${c.name}</b></td><td>${c.fmt}</td><td>${c.ch}</td><td>${c.fs}</td><td class="lat">${c.lat}</td></tr>`;
+      }
+    });
+    if (open) html += "</tbody></table>";
+    $("chipTable").innerHTML = html;
+  }
+
+  // ---------- Glossaire ----------
+  const GLOSSARY = {
+    aliasing:{ t:"Aliasing (repliement spectral)", d:"Quand fe < 2 × fmax, les fréquences au-dessus de fe/2 se « replient » dans le spectre et apparaissent comme des fréquences fantômes plus graves. Corruption irréversible : c'est pourquoi tout convertisseur A/N est précédé d'un filtre anti-repliement. Testez : signal à 4 kHz, fe à 6 kHz — le pic fantôme ↩ apparaît dans le spectre." },
+    nyquist:{ t:"Théorème de Nyquist-Shannon", d:"Pour représenter un signal sans perte, la fréquence d'échantillonnage doit être strictement supérieure à 2× sa plus haute fréquence : fe > 2 × fmax. Exemple : le CD audio à 44,1 kHz couvre l'audible jusqu'à 22,05 kHz." },
+    echantillonnage:{ t:"Échantillonnage", d:"Prélèvement de la valeur du signal à intervalles réguliers Ts = 1/fe. Il discrétise le TEMPS : entre deux échantillons, l'information est abandonnée. Il ne touche pas encore à l'amplitude." },
+    quantification:{ t:"Quantification", d:"Arrondi de chaque échantillon au niveau le plus proche parmi 2^bits niveaux répartis sur la pleine échelle. Elle discrétise l'AMPLITUDE et introduit une erreur irréversible : le bruit de quantification." },
+    sqnr:{ t:"SQNR (rapport signal/bruit de quantification)", d:"Rapport entre la puissance du signal et celle du bruit de quantification : SQNR ≈ 6,02 × N + 1,76 dB pour N bits. Chaque bit gagne ~6 dB. 16 bits → ~98 dB ; 8 bits → ~50 dB ; 2 bits → ~14 dB, très audible !" },
+    lsb:{ t:"Pas de quantification (LSB)", d:"Écart entre deux niveaux consécutifs : q = pleine échelle / 2^bits. L'erreur maximale vaut q/2. C'est le poids du bit de poids faible (Least Significant Bit)." },
+    debit:{ t:"Débit binaire", d:"Nombre de bits produits par seconde : débit = fe × bits × canaux. Exemple CD : 44 100 × 16 × 2 = 1 411 kb/s. C'est ce débit que les formats compressés (MP3, AAC) réduisent ensuite." },
+    zoh:{ t:"Bloqueur d'ordre zéro (ZOH)", d:"Reconstruction la plus simple : chaque échantillon est maintenu jusqu'au suivant → signal en escalier. Simple et rapide, mais il atténue les aigus et crée des images spectrales qu'un filtre de sortie doit éliminer." },
+    sinc:{ t:"Reconstruction sinc (idéale)", d:"Reconstruction théoriquement parfaite : chaque échantillon est remplacé par une fonction sinc — sin(πt)/(πt) — et leur somme restitue exactement le signal original SI Nyquist est respecté. Équivalent d'un filtre passe-bas idéal à fe/2." },
+    fft:{ t:"FFT (transformée de Fourier rapide)", d:"Algorithme qui décompose un signal en ses composantes fréquentielles. L'axe horizontal montre les fréquences, l'axe vertical leur niveau en dB. Ici, la FFT est calculée sur le signal NUMÉRIQUE : elle révèle les pics du signal, le plancher de bruit de quantification et les fréquences fantômes de l'aliasing." },
+    pcm:{ t:"PCM (modulation par impulsions codées)", d:"La suite de mots binaires produite par la conversion : chaque échantillon devient un nombre codé sur N bits. C'est le format brut de l'audio numérique — celui des fichiers WAV, du CD, et transporté tel quel par Dante." },
+    larsen:{ t:"Effet Larsen", d:"Boucle de réinjection acoustique : le micro capte le son des haut-parleurs, qui est réamplifié, recapté… jusqu'au sifflement. C'est pourquoi l'écoute est désactivée quand le micro est la source." },
+    ptp:{ t:"PTP (Precision Time Protocol)", d:"Protocole IEEE 1588 utilisé par Dante pour synchroniser très précisément les horloges des équipements sur le réseau. Le PTP distribue une référence temporelle ; il ne transforme pas 44,1 kHz en 48 kHz et ne remplace donc pas un SRC." },
+    src:{ t:"SRC (Sample Rate Converter)", d:"Convertisseur de fréquence d'échantillonnage. Il transforme un flux PCM d'une fréquence vers une autre, par exemple 44,1 kHz → 48 kHz. Il est nécessaire lorsqu'une liaison numérique directe exige une même fréquence d'échantillonnage aux deux extrémités." },
+    analogique:{ t:"Signal analogique", d:"Grandeur continue en temps et en amplitude : une tension qui varie de façon fluide. Fragile face au bruit et aux pertes de câble — chaque copie ou mètre de câble le dégrade un peu." },
+    micro:{ t:"Microphone", d:"Transducteur : il transforme la pression acoustique en tension électrique analogique. Dynamique (robuste, scène), condensateur (précis, studio, nécessite une alimentation fantôme 48 V), etc. Son signal de sortie est très faible : quelques millivolts." },
+    preampli:{ t:"Préamplificateur", d:"Amplifie le signal très faible du micro (mV) vers le niveau ligne (~1 V) exploitable par le convertisseur. Sa qualité conditionne le bruit de toute la chaîne : un gain propre ici, c'est un enregistrement propre partout." },
+    adc:{ t:"Convertisseur A/N (ADC)", d:"Le cœur de ce labo ! Il échantillonne le signal à fe Hz et quantifie chaque échantillon sur N bits → flux PCM. Précédé d'un filtre anti-aliasing. Ses réglages (fe, bits) déterminent la fidélité numérique." },
+    dsp:{ t:"DSP (processeur de signal numérique)", d:"Puce dédiée au traitement audio en temps réel : égalisation, compression, délais, mixage, correction de salle… Tout se fait en calcul sur les échantillons PCM, sans aucune dégradation analogique." },
+    dante:{ t:"Réseau Dante", d:"Audio over IP développé par Audinate : transporte des centaines de canaux audio non compressés sur un simple câble Ethernet, avec une latence de l'ordre de la milliseconde et une synchronisation d'horloge précise (PTP). Standard de fait du son live et de l'installation AV.<br><br><span class='term' data-chip='1'>📋 Voir le comparatif des chipsets Dante →</span>" },
+    console:{ t:"Console de mixage", d:"Centre de pilotage : elle reçoit les flux (souvent via Dante), mixe, route vers les sorties. Une console numérique contient le convertisseur N/A qui retransforme le flux en signal analogique pour l'amplification." },
+    ampli:{ t:"Amplificateur de puissance", d:"Transforme le signal ligne (faible puissance) en signal capable de piloter les haut-parleurs (dizaines à milliers de watts). Classes A/B (qualité) ou D (rendement élevé, léger — standard actuel)." },
+    hp:{ t:"Haut-parleur", d:"Transducteur inverse du micro : la bobine plongée dans le champ magnétique convertit le courant en mouvement de membrane → ondes de pression acoustique. La boucle est bouclée : de l'air à l'air !" }
+  };
+
+  function glosList() {
+    $("glosTitle").textContent = "📖 Glossaire";
+    $("glosBody").innerHTML = Object.keys(GLOSSARY).map(k =>
+      `<span class="g-item"><span class="term" data-t="${k}">${GLOSSARY[k].t}</span></span>`).join("");
+    $("glosBack").style.display = "none";
+  }
+  function glosTerm(k) {
+    const g = GLOSSARY[k];
+    if (!g) return;
+    $("glosTitle").textContent = g.t;
+    $("glosBody").innerHTML = g.d;
+    $("glosBack").style.display = "";
+  }
+  $("glosBtn").addEventListener("click", () => { glosList(); $("glosOverlay").classList.add("open"); });
+  $("glosClose").addEventListener("click", () => $("glosOverlay").classList.remove("open"));
+  $("glosBack").addEventListener("click", glosList);
+  $("glosOverlay").addEventListener("click", e => { if (e.target === $("glosOverlay")) $("glosOverlay").classList.remove("open"); });
+
+  $("chipBtn").addEventListener("click", () => { $("glosOverlay").classList.remove("open"); $("chipOverlay").classList.add("open"); });
+  $("chipClose").addEventListener("click", () => $("chipOverlay").classList.remove("open"));
+  $("chipOverlay").addEventListener("click", e => { if (e.target === $("chipOverlay")) $("chipOverlay").classList.remove("open"); });
+
+  document.addEventListener("click", e => {
+    const chip = e.target.closest("[data-chip]");
+    if (chip) { $("glosOverlay").classList.remove("open"); $("chipOverlay").classList.add("open"); return; }
+    const el = e.target.closest(".term");
+    if (el && el.dataset.t) { glosTerm(el.dataset.t); $("glosOverlay").classList.add("open"); }
+  });
+
+  // ---------- Chaîne : clic sur blocs + pulse ----------
+  const chainRows = Array.from(document.querySelectorAll(".chain-row"));
+  chainRows.forEach(row => row.addEventListener("click", () => {
+    glosTerm(row.dataset.t);
+    $("glosOverlay").classList.add("open");
+  }));
+  function updateChainPulse() {
+    chainRows.forEach((row, i) => row.classList.toggle("lit", i === chain.pos));
+  }
+
+  // ---------- Calculateurs AV ----------
+  function updLatency() {
+    const total = ["latAdc","latDsp","latDante","latConsole","latDac"]
+      .reduce((s, id) => s + (parseFloat($(id).value) || 0), 0);
+    let v;
+    if (total <= 5) v = '<span style="color:var(--quant)">🟢 Imperceptible — idéal pour le retour musicien (IEM)</span>';
+    else if (total <= 12) v = '<span style="color:var(--recon)">🟡 Léger — perceptible par les musiciens sensibles</span>';
+    else if (total <= 20) v = '<span style="color:var(--recon)">🟠 Marqué — gênant en retour, acceptable en diffusion</span>';
+    else v = '<span style="color:var(--sample)">🔴 Critique — inacceptable pour le monitoring musicien</span>';
+    $("latOut").innerHTML = `Latence totale : <b>${total.toFixed(1)} ms</b><br>${v}<br>
+      <span class="mini">Repère lip-sync vidéo : l'image doit rester dans ±40 ms du son. La latence Dante se règle dans Dante Controller (0,25 / 0,5 / 1 / 2 / 5 ms typique).</span>`;
+  }
+
+  function updDante() {
+    const ch = Math.max(0, parseInt($("dCh").value) || 0);
+    const fs = +$("dFs").value, bits = +$("dBits").value;
+    const mbps = ch * fs * bits / 1e6;
+    const maxGbE = Math.floor(900e6 / (fs * bits));
+    const pct100 = (mbps / 100 * 100).toFixed(1);
+    const pct1000 = (mbps / 1000 * 100).toFixed(2);
+    $("danteOut").innerHTML = `Débit brut : <b>${mbps.toFixed(1)} Mb/s</b> — ${pct100} % d'un lien 100 M · ${pct1000} % d'un lien Gigabit<br>
+      Capacité théorique Gigabit : <b>~${maxGbE.toLocaleString("fr-FR")} canaux</b> à ${(fs/1000).toLocaleString("fr-FR")} kHz / ${bits} bits<br>
+      <span class="mini">Débit par canal : fe × bits = ${(fs*bits/1e6).toFixed(2)} Mb/s. Ajoutez l'overhead paquets (~10 %) et doublez tout en redondance (liens primaire + secondaire).</span>`;
+  }
+
+  function updDelay(from) {
+    let T = parseFloat($("tempC").value);
+    if (isNaN(T)) T = 20;
+    const c = 331.3 + 0.606 * T;
+    if (from === "m") {
+      const m = parseFloat($("distM").value) || 0;
+      $("delayMs").value = (m / c * 1000).toFixed(2);
+    } else {
+      const ms = parseFloat($("delayMs").value) || 0;
+      $("distM").value = (c * ms / 1000).toFixed(2);
+    }
+    $("delayOut").innerHTML = `Vitesse du son à ${T} °C : <b>${c.toFixed(1)} m/s</b> — soit <b>${(1000 / c).toFixed(2)} ms par mètre</b><br>
+      <span class="mini">Usage : retarder les haut-parleurs proches du public pour les aligner sur le système principal distant. Astuce de terrain : ~3 ms par mètre à 20 °C.</span>`;
+  }
+
+  function updDb(src) {
+    const align = +$("fsAlign").value;
+    let dbu;
+    if (src === "dbu") dbu = parseFloat($("inDbu").value) || 0;
+    else if (src === "dbv") dbu = (parseFloat($("inDbv").value) || 0) + 2.21;
+    else dbu = (parseFloat($("inDbfs").value) || 0) + align;
+    const dbv = dbu - 2.21;
+    const v = 0.775 * Math.pow(10, dbu / 20);
+    const dbfs = dbu - align;
+    if (src !== "dbu") $("inDbu").value = dbu.toFixed(1);
+    if (src !== "dbv") $("inDbv").value = dbv.toFixed(1);
+    if (src !== "dbfs") $("inDbfs").value = dbfs.toFixed(1);
+    $("dbOut").innerHTML = `Tension : <b>${v.toFixed(3)} V RMS</b> — soit <b>${dbfs.toFixed(1)} dBFS</b> avec l'alignement choisi<br>
+      <span class="mini">Références : 0 dBu = 0,775 V · 0 dBV = 1 V · dBV = dBu − 2,21. Niveau ligne pro : +4 dBu (1,23 V) ; grand public : −10 dBV (0,316 V).</span>`;
+  }
+
+  ["latAdc","latDsp","latDante","latConsole","latDac"].forEach(id => $(id).addEventListener("input", updLatency));
+  ["dCh","dFs","dBits"].forEach(id => $(id).addEventListener("input", updDante));
+  $("tempC").addEventListener("input", () => updDelay("ms"));
+  $("delayMs").addEventListener("input", () => updDelay("ms"));
+  $("distM").addEventListener("input", () => updDelay("m"));
+  $("inDbu").addEventListener("input", () => updDb("dbu"));
+  $("inDbv").addEventListener("input", () => updDb("dbv"));
+  $("inDbfs").addEventListener("input", () => updDb("dbfs"));
+  $("fsAlign").addEventListener("change", () => updDb("dbu"));
+
+
+  // ---------- Horloge / compatibilité numérique ----------
+  function setClockMaster(mode) {
+    state.clockMaster = mode;
+    $("clockAdc").classList.toggle("on", mode === "adc");
+    $("clockDante").classList.toggle("on", mode === "dante");
+    $("clockWord").classList.toggle("on", mode === "word");
+    $("wordFs").disabled = mode !== "word";
+    updateClock();
+  }
+
+  function updateClock() {
+    const adc = state.fs;
+    const domain = state.clockFs;
+    const wc = state.wordFs;
+    const box = $("clockStatus");
+    let cls = "ok", title = "", body = "";
+
+    if (state.clockMaster === "adc") {
+      if (adc === domain) {
+        title = "🟢 Domaine cohérent";
+        body = `L'ADC est maître à <b>${(adc/1000).toLocaleString("fr-FR")} kHz</b>. Le domaine numérique sélectionné est identique : liaison PCM directe possible sans SRC.`;
+      } else {
+        cls = "warn";
+        title = "🟠 Fréquences différentes";
+        body = `ADC = <b>${(adc/1000).toLocaleString("fr-FR")} kHz</b>, domaine = <b>${(domain/1000).toLocaleString("fr-FR")} kHz</b>. L'ADC ne peut pas être relié directement à un équipement qui exige ${ (domain/1000).toLocaleString("fr-FR") } kHz : utilisez un SRC ou faites suivre le domaine à l'ADC.`;
+      }
+      body += `<br><span class="mini">PTP, s'il est présent, doit être traité comme une référence d'horloge réseau ; il ne change pas la valeur de fe.</span>`;
+    } else if (state.clockMaster === "dante") {
+      if (adc === domain) {
+        title = "🟢 Dante / PTP compatible";
+        body = `Le domaine Dante est à <b>${(domain/1000).toLocaleString("fr-FR")} kHz</b> et l'ADC est réglé à la même fréquence. PTP fournit la synchronisation d'horloge ; aucun SRC n'est requis pour cette liaison.`;
+      } else {
+        cls = "bad";
+        title = "🔴 SRC requis";
+        body = `Domaine Dante/PTP = <b>${(domain/1000).toLocaleString("fr-FR")} kHz</b>, ADC = <b>${(adc/1000).toLocaleString("fr-FR")} kHz</b>. PTP ne convertit pas la fréquence : un SRC est nécessaire pour relier ces deux domaines, ou il faut régler l'ADC sur ${ (domain/1000).toLocaleString("fr-FR") } kHz.`;
+      }
+    } else {
+      if (adc === wc && wc === domain) {
+        title = "🟢 Word Clock verrouillé";
+        body = `Word Clock = ADC = domaine numérique à <b>${(wc/1000).toLocaleString("fr-FR")} kHz</b>. Les trois éléments partagent la même référence : liaison directe possible sans SRC.`;
+      } else if (adc === wc && domain !== wc) {
+        cls = "warn";
+        title = "🟠 ADC verrouillé, domaine différent";
+        body = `ADC et Word Clock sont à <b>${(wc/1000).toLocaleString("fr-FR")} kHz</b>, mais le domaine numérique est à <b>${(domain/1000).toLocaleString("fr-FR")} kHz</b>. Le clock est cohérent côté ADC, mais une conversion de fréquence est nécessaire pour ce domaine.`;
+      } else {
+        cls = "bad";
+        title = "🔴 Désaccord d'horloge";
+        body = `Word Clock = <b>${(wc/1000).toLocaleString("fr-FR")} kHz</b> alors que l'ADC = <b>${(adc/1000).toLocaleString("fr-FR")} kHz</b>. L'ADC ne peut pas être considéré comme verrouillé sur cette référence. Alignez les fréquences avant la liaison.`;
+      }
+    }
+    box.className = "clock-status " + cls;
+    box.innerHTML = `<div class="title">${title}</div>${body}`;
+  }
+
+  // ---------- Signal source : générateur ----------
+  function genSignal(t) {
+    const f = state.freq, a = state.amp, w = 2 * Math.PI * f * t;
+    switch (state.sigType) {
+      case "sine": return a * Math.sin(w);
+      case "triangle": return a * (2 / Math.PI) * Math.asin(Math.sin(w));
+      case "square": return a * Math.tanh(6 * Math.sin(w));
+      case "composite": return a * (0.7 * Math.sin(w) + 0.3 * Math.sin(2 * w + 0.5));
+      case "voice": return a * (0.55 * Math.sin(w) + 0.3 * Math.sin(2.7 * w + 1.2) + 0.15 * Math.sin(5.1 * w + 2.4));
+      default: return 0;
+    }
+  }
+
+  // ---------- Source : micro ----------
+  let audioCtx = null, micStream = null, analyser = null, micTmp = null;
+  const RING_LEN = 65536;
+  const ring = new Float32Array(RING_LEN);
+  let ringPos = 0, micReady = false, micRate = 48000;
+
+  function micAgo(dt) {
+    let idx = ringPos - 1 - Math.round(dt * micRate);
+    idx = ((idx % RING_LEN) + RING_LEN) % RING_LEN;
+    return Math.max(-1, Math.min(1, ring[idx] * state.amp * 2));
+  }
+  function pullMic(dtMs) {
+    if (!analyser) return;
+    analyser.getFloatTimeDomainData(micTmp);
+    let nNew = Math.min(micTmp.length, Math.max(1, Math.round(dtMs * micRate / 1000)));
+    for (let i = micTmp.length - nNew; i < micTmp.length; i++) {
+      ring[ringPos] = micTmp[i];
+      ringPos = (ringPos + 1) % RING_LEN;
+    }
+  }
+
+  // ---------- Source : fichier ----------
+  let fileData = null, fileRate = 44100, fileDur = 0, fileOffset = 0, fileReady = false;
+  function fileAt(time) {
+    if (!fileReady) return 0;
+    let p = (fileOffset + time) % fileDur;
+    if (p < 0) p += fileDur;
+    return fileData[Math.floor(p * fileRate)] * state.amp;
+  }
+
+  // ---------- Signal unifié ----------
+  function windowDur() {
+    if (state.source !== "gen") return 0.025;
+    const td = state.scope && Number.isFinite(state.scope.timeDiv) ? state.scope.timeDiv : 0.005;
+    return Math.max(0.0002, td * 10);
+  }
+  function analogSignal(t) {
+    if (state.source === "mic") return micReady ? micAgo(windowDur() - t) : 0;
+    if (state.source === "file") return fileAt(t);
+    return genSignal(t);
+  }
+  function digiSample(n) {
+    const Ts = 1 / state.fs;
+    let v;
+    if (state.source === "mic") v = micReady ? micAgo((1023 - n) * Ts) : 0;
+    else if (state.source === "file") v = fileAt(n * Ts);
+    else v = genSignal(n * Ts);
+    return quantize(v, state.bits);
+  }
+
+  function quantizeInfo(v, bits) {
+    const levels = Math.pow(2, bits);
+    const step = 2 / levels;
+    let idx = Math.floor((v + 1) / step);
+    idx = Math.max(0, Math.min(levels - 1, idx));
+    return { idx, q: idx * step - 1 + step / 2 };
+  }
+  const quantize = (v, bits) => quantizeInfo(v, bits).q;
+  const sinc = u => u === 0 ? 1 : Math.sin(Math.PI * u) / (Math.PI * u);
+
+  function fMaxSignal() {
+    switch (state.sigType) {
+      case "composite": return 2 * state.freq;
+      case "voice": return 5.1 * state.freq;
+      case "square": return 5 * state.freq;
+      default: return state.freq;
+    }
+  }
+  function harmonics() {
+    const f = state.freq;
+    switch (state.sigType) {
+      case "sine": return [{ f, a:1 }];
+      case "triangle": return [1,3,5].map(k => ({ f:k*f, a:1/(k*k) }));
+      case "square": return [1,3,5,7].map(k => ({ f:k*f, a:1/k }));
+      case "composite": return [{ f, a:0.7 }, { f:2*f, a:0.3 }];
+      case "voice": return [{ f, a:0.55 }, { f:2.7*f, a:0.3 }, { f:5.1*f, a:0.15 }];
+      default: return [];
+    }
+  }
+
+  function layers() {
+    if (!guided.active) return state.show;
+    const s = guided.step;
+    return { analog:true, quantGrid:s>=3, samples:s>=2, recon:s>=4, error:s===3 };
+  }
+
+  function reconValue(t, qArr, Ts) {
+    const n0 = t / Ts;
+    if (state.recon === "linear") {
+      const n = Math.floor(n0), fr = n0 - n;
+      const a = qArr[Math.max(0, Math.min(qArr.length - 1, n))];
+      const b = qArr[Math.max(0, Math.min(qArr.length - 1, n + 1))];
+      return a + (b - a) * fr;
+    }
+    if (state.recon === "sinc") {
+      const K = 24, nc = Math.round(n0);
+      let s = 0;
+      for (let k = Math.max(0, nc - K); k <= Math.min(qArr.length - 1, nc + K); k++) s += qArr[k] * sinc(n0 - k);
+      return Math.max(-1.1, Math.min(1.1, s));
+    }
+    return qArr[Math.max(0, Math.min(qArr.length - 1, Math.floor(n0)))];
+  }
+
+  // ---------- Rendu ----------
+  function resize() {
+    const wrap = $("canvasWrap");
+    const w = Math.max(280, (wrap.clientWidth || $("stage").clientWidth || window.innerWidth) - 16);
+    const h = state.layout === "split" ? Math.max(460, Math.min(680, w * 1.0)) : Math.max(280, Math.min(420, w * 0.55));
+    const dpr = window.devicePixelRatio || 1;
+    cv.width = w * dpr; cv.height = h * dpr;
+    cv.style.height = h + "px";
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const fw = $("fftWrap").clientWidth - 16, fh = 200;
+    fftCv.width = fw * dpr; fftCv.height = fh * dpr;
+    fftCv.style.height = fh + "px";
+    fctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    draw();
+  }
+
+  function drawGridCommon(x, yTop, yBottom, dur) {
+    ctx.strokeStyle = "#21262d"; ctx.lineWidth = 1;
+    const divs = 10;
+    for (let i = 0; i <= divs; i++) {
+      const xx = (i / divs) * cv.clientWidth;
+      ctx.beginPath(); ctx.moveTo(xx, yTop); ctx.lineTo(xx, yBottom); ctx.stroke();
+    }
+    for (let i = 0; i <= 8; i++) {
+      const yy = yTop + (i / 8) * (yBottom - yTop);
+      ctx.beginPath(); ctx.moveTo(0, yy); ctx.lineTo(cv.clientWidth, yy); ctx.stroke();
+    }
+    ctx.strokeStyle = "#30363d";
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(x(dur / 2), yTop); ctx.lineTo(x(dur / 2), yBottom);
+    ctx.stroke();
+  }
+  function drawQuantGrid(y, W) {
+    const levels = Math.pow(2, state.bits);
+    ctx.strokeStyle = "rgba(63,185,80,0.18)";
+    for (let i = 0; i <= levels; i++) {
+      const v = -1 + (2 * i) / levels;
+      ctx.beginPath(); ctx.moveTo(0, y(v)); ctx.lineTo(W, y(v)); ctx.stroke();
+    }
+  }
+  function drawAnalogCurve(x, y, dur) {
+    ctx.strokeStyle = "#58a6ff"; ctx.lineWidth = 2;
+    ctx.beginPath();
+    const N = 1200;
+    for (let i = 0; i <= N; i++) {
+      const t = (i / N) * dur;
+      const v = analogSignal(t);
+      i === 0 ? ctx.moveTo(x(t), y(v)) : ctx.lineTo(x(t), y(v));
+    }
+    ctx.stroke();
+  }
+  function drawReconCurve(x, y, lim, Ts, dur) {
+    const qArr = [];
+    for (let n = 0; n < lim; n++) qArr.push(quantize(analogSignal(n * Ts), state.bits));
+    ctx.strokeStyle = "#d29922"; ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    if (state.recon === "zoh") {
+      for (let n = 0; n < lim; n++) {
+        const t0 = n * Ts, t1 = Math.min((n + 1) * Ts, dur);
+        if (n === 0) ctx.moveTo(x(t0), y(qArr[n])); else ctx.lineTo(x(t0), y(qArr[n]));
+        ctx.lineTo(x(t1), y(qArr[n]));
+      }
+    } else {
+      const N = 500;
+      for (let i = 0; i <= N; i++) {
+        const t = (i / N) * Math.min(dur, (lim - 1) * Ts);
+        const v = reconValue(t, qArr, Ts);
+        i === 0 ? ctx.moveTo(x(t), y(v)) : ctx.lineTo(x(t), y(v));
+      }
+    }
+    ctx.stroke();
+  }
+  function drawDots(x, y, lim, Ts, onAnalog) {
+    for (let n = 0; n < lim; n++) {
+      const t = n * Ts;
+      const raw = analogSignal(t);
+      const v = onAnalog ? raw : quantize(raw, state.bits);
+      ctx.fillStyle = "#f85149";
+      ctx.beginPath(); ctx.arc(x(t), y(v), 4.5, 0, 2 * Math.PI); ctx.fill();
+      ctx.fillStyle = "rgba(248,81,73,0.25)";
+      ctx.beginPath(); ctx.arc(x(t), y(v), 8, 0, 2 * Math.PI); ctx.fill();
+    }
+  }
+  function drawErrors(x, y, lim, Ts) {
+    ctx.strokeStyle = "rgba(188,140,255,0.9)"; ctx.lineWidth = 1.5;
+    for (let n = 0; n < lim; n++) {
+      const t = n * Ts;
+      const a = analogSignal(t), q = quantize(a, state.bits);
+      ctx.beginPath(); ctx.moveTo(x(t), y(a)); ctx.lineTo(x(t), y(q)); ctx.stroke();
+    }
+  }
+  function drawSamplingLines(x, yTop, yBottom, lim, Ts) {
+    ctx.strokeStyle = "rgba(248,81,73,0.25)";
+    ctx.setLineDash([4, 4]);
+    for (let n = 0; n < lim; n++) {
+      ctx.beginPath(); ctx.moveTo(x(n * Ts), yTop); ctx.lineTo(x(n * Ts), yBottom); ctx.stroke();
+    }
+    ctx.setLineDash([]);
+  }
+  function drawCursor(x, yTop, yBottom, lim, Ts) {
+    if (!(guided.active && guided.step >= 2 && guided.progress < 1)) return;
+    ctx.strokeStyle = "rgba(210,168,255,0.6)"; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(x(lim * Ts), yTop); ctx.lineTo(x(lim * Ts), yBottom); ctx.stroke();
+  }
+
+  function findTriggerTime(dur) {
+    const level = state.scope.triggerLevel;
+    const N = 1600;
+    let prev = analogSignal(0) - level;
+    for (let i = 1; i <= N; i++) {
+      const t = dur * i / N;
+      const cur = analogSignal(t) - level;
+      const crossed = state.scope.slope === "rise" ? (prev < 0 && cur >= 0) : (prev > 0 && cur <= 0);
+      if (crossed) return t;
+      prev = cur;
+    }
+    return state.scope.mode === "auto" ? 0 : null;
+  }
+
+  function updateScopeMeasurements() {
+    if (state.source !== "gen") {
+      $("scopeFreq").textContent = "—";
+      $("scopeVpp").textContent = "—";
+      $("scopeVrms").textContent = "—";
+      return;
+    }
+    const dur = windowDur();
+    const N = 2000;
+    let min = Infinity, max = -Infinity, sum2 = 0;
+    let prev = analogSignal(0), crossings = [];
+    for (let i = 0; i <= N; i++) {
+      const v = analogSignal(dur * i / N);
+      min = Math.min(min, v); max = Math.max(max, v); sum2 += v*v;
+      if (i > 0) {
+        const t = dur * i / N;
+        const crossed = state.scope.slope === "rise"
+          ? (prev < state.scope.triggerLevel && v >= state.scope.triggerLevel)
+          : (prev > state.scope.triggerLevel && v <= state.scope.triggerLevel);
+        if (crossed) crossings.push(t);
+      }
+      prev = v;
+    }
+    let f = null;
+    if (crossings.length >= 2) {
+      const periods = [];
+      for (let i=1;i<crossings.length;i++) periods.push(crossings[i]-crossings[i-1]);
+      const p = periods.reduce((a,b)=>a+b,0)/periods.length;
+      if (p > 0) f = 1/p;
+    } else if (state.sigType === "sine") f = state.freq;
+    $("scopeFreq").textContent = f ? (f >= 1000 ? (f/1000).toFixed(2)+" kHz" : f.toFixed(1)+" Hz") : "—";
+    $("scopeVpp").textContent = (max-min).toFixed(3) + " V";
+    $("scopeVrms").textContent = Math.sqrt(sum2/(N+1)).toFixed(3) + " V";
+  }
+
+  function drawScopeLabels(W, H, dur) {
+    ctx.fillStyle = "#8b949e";
+    ctx.font = "10px -apple-system, sans-serif";
+    for (let i=0;i<=10;i++) {
+      const t = (i/10)*dur*1000;
+      const label = t < 1 ? t.toFixed(2)+" ms" : t.toFixed(t < 10 ? 1 : 0)+" ms";
+      ctx.fillText(label, Math.max(2, i/10*W-12), H-5);
+    }
+    ctx.fillStyle = "#58a6ff";
+    const td = Number.isFinite(state.scope.timeDiv) ? state.scope.timeDiv : 0.005;
+    ctx.fillText("Time/div : "+(td*1000).toFixed(td < 0.001 ? 2 : 1)+" ms", 6, 13);
+    ctx.fillText("Volt/div : "+state.scope.voltDiv.toFixed(2)+" V", 6, 26);
+    ctx.fillStyle = "#d2a8ff";
+    ctx.fillText("Trigger "+(state.scope.triggerLevel >= 0 ? "+" : "")+state.scope.triggerLevel.toFixed(2), W-90, 13);
+  }
+
+  function draw() {
+    const W = cv.clientWidth || 600, H = cv.clientHeight || 460;
+    if (!cv.width || !cv.height) return;
+    const dur = windowDur();
+    const x = t => (t / dur) * W;
+    const L = layers();
+    const Ts = 1 / state.fs;
+    const nSamples = Math.floor(dur / Ts) + 1;
+    const cutoff = (guided.active && guided.step >= 2)
+      ? Math.max(1, Math.ceil(guided.progress * nSamples)) : nSamples;
+
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = "#0d1117";
+    ctx.fillRect(0, 0, W, H);
+    ctx.font = "11px -apple-system, sans-serif";
+
+    if (state.layout === "overlay") {
+      const midY = H / 2;
+      const scaleY = Math.min(H * 0.42, (H / 8) / Math.max(0.05, state.scope.voltDiv));
+      const y = v => midY - v * scaleY;
+      drawGridCommon(x, 0, H, dur);
+      ctx.strokeStyle = "#30363d";
+      ctx.beginPath(); ctx.moveTo(0, midY); ctx.lineTo(W, midY); ctx.stroke();
+      if (L.quantGrid) drawQuantGrid(y, W);
+      if (guided.active && guided.step === 2) drawSamplingLines(x, 0, H, cutoff, Ts);
+      if (L.recon) drawReconCurve(x, y, (guided.active && guided.step >= 4) ? cutoff : nSamples, Ts, dur);
+      if (L.analog) drawAnalogCurve(x, y, dur);
+      if (L.error) drawErrors(x, y, guided.active ? cutoff : nSamples, Ts);
+      if (L.samples) drawDots(x, y, guided.active ? cutoff : nSamples, Ts, guided.active && guided.step === 2);
+      drawCursor(x, 0, H, cutoff, Ts);
+      ctx.fillStyle = "#8b949e";
+      ctx.fillText("0 ms", 6, H - 8);
+      ctx.fillText((dur * 1000).toFixed(dur <= 0.005 ? 1 : 0) + " ms", W - 46, H - 8);
+    } else {
+      const labelH = 20, gap = 10, bottomM = 18;
+      const ph = (H - 2 * labelH - gap - bottomM) / 2;
+      const yA0 = labelH;
+      const yB0 = labelH + ph + gap + labelH;
+      const scaleA = Math.min(ph * 0.42, (ph / 8) / Math.max(0.05, state.scope.voltDiv));
+      const scaleB = scaleA;
+      const yA = v => yA0 + ph / 2 - v * scaleA;
+      const yB = v => yB0 + ph / 2 - v * scaleB;
+      ctx.font = "600 11px -apple-system, sans-serif";
+      ctx.fillStyle = "#58a6ff";
+      ctx.fillText("MONDE ANALOGIQUE — signal continu", 6, 13);
+      ctx.fillStyle = "#d29922";
+      ctx.fillText("MONDE NUMÉRIQUE — échantillonné & quantifié", 6, yB0 - 7);
+      ctx.font = "11px -apple-system, sans-serif";
+      drawGridCommon(x, yA0, yA0 + ph, dur);
+      drawGridCommon(x, yB0, yB0 + ph, dur);
+      ctx.strokeStyle = "#30363d";
+      ctx.beginPath(); ctx.moveTo(0, yA(0)); ctx.lineTo(W, yA(0)); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, yB(0)); ctx.lineTo(W, yB(0)); ctx.stroke();
+      if (guided.active && guided.step === 2) drawSamplingLines(x, yA0, yA0 + ph, cutoff, Ts);
+      if (L.analog) drawAnalogCurve(x, yA, dur);
+      if (L.samples) drawDots(x, yA, guided.active ? cutoff : nSamples, Ts, true);
+      if (L.quantGrid) drawQuantGrid(yB, W);
+      if (L.analog) {
+        ctx.strokeStyle = "rgba(88,166,255,0.35)"; ctx.lineWidth = 1.2;
+        ctx.setLineDash([5, 4]);
+        ctx.beginPath();
+        const N = 600;
+        for (let i = 0; i <= N; i++) {
+          const t = (i / N) * dur;
+          const v = analogSignal(t);
+          i === 0 ? ctx.moveTo(x(t), yB(v)) : ctx.lineTo(x(t), yB(v));
+        }
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+      if (L.recon) drawReconCurve(x, yB, (guided.active && guided.step >= 4) ? cutoff : nSamples, Ts, dur);
+      if (L.error) drawErrors(x, yB, guided.active ? cutoff : nSamples, Ts);
+      if (L.samples) {
+        const lim = (guided.active && guided.step >= 3) ? cutoff : (guided.active ? 0 : nSamples);
+        drawDots(x, yB, lim, Ts, false);
+      }
+      drawCursor(x, yA0, yB0 + ph, cutoff, Ts);
+      ctx.fillStyle = "#8b949e";
+      ctx.fillText("0 ms", 6, H - 5);
+      ctx.fillText((dur * 1000).toFixed(dur <= 0.005 ? 1 : 0) + " ms", W - 46, H - 5);
+    }
+    drawScopeLabels(W, H, dur);
+    drawFFT();
+  }
+
+  // ---------- FFT ----------
+  function fft(re, im) {
+    const n = re.length;
+    for (let i = 1, j = 0; i < n; i++) {
+      let bit = n >> 1;
+      for (; j & bit; bit >>= 1) j ^= bit;
+      j ^= bit;
+      if (i < j) {
+        const tr = re[i]; re[i] = re[j]; re[j] = tr;
+        const ti = im[i]; im[i] = im[j]; im[j] = ti;
+      }
+    }
+    for (let len = 2; len <= n; len <<= 1) {
+      const ang = -2 * Math.PI / len, wr = Math.cos(ang), wi = Math.sin(ang);
+      for (let i = 0; i < n; i += len) {
+        let cwr = 1, cwi = 0;
+        for (let j = 0; j < len / 2; j++) {
+          const ur = re[i + j], ui = im[i + j];
+          const vr = re[i + j + len / 2] * cwr - im[i + j + len / 2] * cwi;
+          const vi = re[i + j + len / 2] * cwi + im[i + j + len / 2] * cwr;
+          re[i + j] = ur + vr; im[i + j] = ui + vi;
+          re[i + j + len / 2] = ur - vr; im[i + j + len / 2] = ui - vi;
+          const nwr = cwr * wr - cwi * wi; cwi = cwr * wi + cwi * wr; cwr = nwr;
+        }
+      }
+    }
+  }
+
+  function drawFFT() {
+    const W = fftCv.clientWidth || 600, H = fftCv.clientHeight || 200;
+    if (!fftCv.width || !fftCv.height) return;
+    const N = 1024;
+    const re = new Float64Array(N), im = new Float64Array(N);
+    for (let n = 0; n < N; n++) {
+      const hann = 0.5 * (1 - Math.cos(2 * Math.PI * n / (N - 1)));
+      re[n] = digiSample(n) * hann;
+    }
+    fft(re, im);
+    const fmin = Math.max(15, state.fs / N), fmax = state.fs / 2;
+    const padL = 34, padR = 8, padT = 14, padB = 20;
+    const xF = f => padL + (Math.log10(f) - Math.log10(fmin)) / (Math.log10(fmax) - Math.log10(fmin)) * (W - padL - padR);
+    const yDb = db => padT + (0 - Math.max(-100, Math.min(3, db))) / 100 * (H - padT - padB);
+    fctx.clearRect(0, 0, W, H);
+    fctx.fillStyle = "#0d1117";
+    fctx.fillRect(0, 0, W, H);
+    fctx.font = "10px -apple-system, sans-serif";
+    fctx.strokeStyle = "#21262d"; fctx.fillStyle = "#8b949e";
+    for (let db = 0; db >= -80; db -= 20) {
+      fctx.beginPath(); fctx.moveTo(padL, yDb(db)); fctx.lineTo(W - padR, yDb(db)); fctx.stroke();
+      fctx.fillText(db + "", 4, yDb(db) + 3);
+    }
+    [50,100,200,500,1000,2000,5000,10000,20000].forEach(f => {
+      if (f < fmin || f > fmax) return;
+      fctx.strokeStyle = "#21262d";
+      fctx.beginPath(); fctx.moveTo(xF(f), padT); fctx.lineTo(xF(f), H - padB); fctx.stroke();
+      if ([100,1000,10000].includes(f)) {
+        fctx.fillStyle = "#8b949e";
+        fctx.fillText(f >= 1000 ? (f / 1000) + "k" : f + "", xF(f) - 6, H - 6);
+      }
+    });
+    fctx.fillStyle = "#8b949e";
+    fctx.fillText("fe/2", W - 32, H - 6);
+    fctx.strokeStyle = "#3fb950"; fctx.lineWidth = 1.8;
+    fctx.beginPath();
+    let started = false;
+    for (let k = 1; k < N / 2; k++) {
+      const f = k * state.fs / N;
+      if (f < fmin || f > fmax) continue;
+      const mag = Math.hypot(re[k], im[k]);
+      const db = 20 * Math.log10(4 * mag / N + 1e-12);
+      const px = xF(f), py = yDb(db);
+      started ? fctx.lineTo(px, py) : fctx.moveTo(px, py);
+      started = true;
+    }
+    fctx.stroke();
+    if (state.source === "gen") {
+      harmonics().forEach(h => {
+        if (h.f <= fmax) {
+          if (h.f >= fmin) {
+            fctx.strokeStyle = "rgba(88,166,255,0.7)"; fctx.lineWidth = 1.2;
+            fctx.setLineDash([4, 3]);
+            fctx.beginPath(); fctx.moveTo(xF(h.f), padT); fctx.lineTo(xF(h.f), H - padB); fctx.stroke();
+            fctx.setLineDash([]);
+          }
+        } else {
+          let r = h.f % state.fs;
+          const fa = Math.min(r, state.fs - r);
+          if (fa >= fmin) {
+            fctx.strokeStyle = "rgba(248,81,73,0.8)"; fctx.lineWidth = 1.2;
+            fctx.setLineDash([2, 3]);
+            fctx.beginPath(); fctx.moveTo(xF(fa), padT); fctx.lineTo(xF(fa), H - padB); fctx.stroke();
+            fctx.setLineDash([]);
+            fctx.fillStyle = "#f85149";
+            fctx.fillText("↩", xF(fa) - 3, padT + 9);
+          }
+        }
+      });
+    }
+  }
+
+  // ---------- Boucle d'animation ----------
+  let looping = false;
+  function loop(ts) {
+    const dt = guided.lastT ? Math.min(100, ts - guided.lastT) : 16;
+    guided.lastT = ts;
+    if (guided.active) {
+      guided.progress += dt / ANIM_MS;
+      if (guided.progress >= 1) guided.progress = 0;
+    }
+    if (state.source === "mic" && micReady) pullMic(dt);
+    if (state.source === "file" && fileReady) fileOffset += dt / 1000;
+    chain.timer += dt;
+    if (chain.timer >= 650) { chain.timer = 0; chain.pos = (chain.pos + 1) % 8; updateChainPulse(); }
+    if (guided.active || state.source !== "gen") draw();
+    requestAnimationFrame(loop);
+  }
+  function ensureLoop() {
+    if (!looping) { looping = true; guided.lastT = 0; requestAnimationFrame(loop); }
+  }
+
+  // ---------- Mode guidé ----------
+  function guidedContent() {
+    const Ts_us = (1e6 / state.fs).toFixed(1);
+    const levels = Math.pow(2, state.bits);
+    const lsb = (2 / levels).toFixed(4);
+    const fMax = fMaxSignal();
+    const nyqOk = state.fs > 2 * fMax;
+    const srcDesc = state.source === "gen"
+      ? `Ici : <strong>${state.freq} Hz</strong>, amplitude <strong>${state.amp.toFixed(2)}</strong>.`
+      : `Ici : votre <strong>source externe</strong> (${state.source === "mic" ? "micro" : "fichier"}), en direct.`;
+    switch (guided.step) {
+      case 1: return {
+        title:"Étape 1 — Le signal analogique",
+        html:`Voici le <strong>signal analogique</strong> (graphe du haut) : une grandeur <strong>continue</strong>, en temps comme en amplitude.
+              ${srcDesc} Dans la chaîne ci-dessus, c'est le signal qui sort du <span class="term" data-t="micro">micro</span> et du <span class="term" data-t="preampli">préampli</span>.
+              Le graphe du bas est encore vide : le monde numérique n'existe pas tant qu'on n'a pas discrétisé
+              le <span class="hl-r">temps</span> (<span class="term" data-t="echantillonnage">échantillonnage</span>) puis l'<span class="hl-g">amplitude</span> (<span class="term" data-t="quantification">quantification</span>).`
+      };
+      case 2: return {
+        title:"Étape 2 — L'échantillonnage",
+        html:`On prélève la valeur du signal à intervalles réguliers : période d'<span class="term" data-t="echantillonnage">échantillonnage</span>
+              Ts = 1 / fe = <span class="hl-r">${Ts_us} µs</span> (fe = <span class="hl-r">${state.fs.toLocaleString("fr-FR")} Hz</span>).
+              Entre deux points rouges, l'information est <strong>abandonnée</strong>.
+              ⚠️ <span class="term" data-t="nyquist">Théorème de Nyquist-Shannon</span> : il faut fe ≥ 2 × fmax
+              ${state.source === "gen" ? `(ici fmax ≈ ${Math.round(fMax)} Hz) → ${nyqOk
+                ? '<span class="hl-g">critère respecté ✓</span>'
+                : '<span class="hl-r">critère VIOLÉ ✗ — <span class="term" data-t="aliasing">aliasing</span> ! Regardez le pic fantôme ↩ dans le spectre.</span>'}`
+                : "(source externe : surveillez le spectre)"}`
+      };
+      case 3: return {
+        title:"Étape 3 — La quantification",
+        html:`Graphe du bas : chaque échantillon est arrondi au <span class="hl-g">niveau</span> le plus proche parmi
+              <span class="hl-g">${levels.toLocaleString("fr-FR")} niveaux</span> (${state.bits} bits).
+              Le <span class="term" data-t="lsb">pas de quantification</span> vaut <span class="hl-g">${lsb}</span> (pleine échelle −1…+1).
+              Les segments <span class="hl-v">violets</span> montrent l'erreur de <span class="term" data-t="quantification">quantification</span> :
+              un bruit irréversible. Plus il y a de bits, plus il est faible
+              (<span class="term" data-t="sqnr">SQNR</span> ≈ <strong>${(6.02 * state.bits + 1.76).toFixed(1)} dB</strong> ici).`
+      };
+      case 4: return {
+        title:"Étape 4 — La reconstruction",
+        html:`À la lecture, chaque valeur redevient un signal continu — c'est ce que fait le convertisseur N/A dans la <span class="term" data-t="console">console</span>.
+              Trois méthodes à comparer dans « Convertisseur A/N » :
+              le <span class="term" data-t="zoh">bloqueur d'ordre zéro</span> (escalier jaune), l'<span class="hl-y">interpolation linéaire</span>
+              et le <span class="term" data-t="sinc">filtre sinc</span> (reconstruction idéale).
+              Avec Nyquist respecté, le sinc retrouve presque exactement l'original !`
+      };
+      case 5: return {
+        title:"Étape 5 — Le mot binaire",
+        html:`Dernière étape : chaque niveau reçoit un <span class="hl-g">code binaire</span> de ${state.bits} bits — c'est le format
+              <span class="term" data-t="pcm">PCM</span>, celui-là même qui voyage sur le réseau <span class="term" data-t="dante">Dante</span>.
+              Le signal est désormais une <strong>suite de 0 et de 1</strong> : stockable, copiable, transmissible sans perte.
+              <span class="term" data-t="debit">Débit</span> résultant : <strong>${Math.round(state.fs * state.bits / 1000)} kb/s</strong> (mono).
+              Voici les 8 premiers échantillons de la fenêtre :`
+      };
+      default: return { title:"", html:"" };
+    }
+  }
+
+  function buildBitTable() {
+    const Ts = 1 / state.fs;
+    let rows = "";
+    for (let n = 0; n < 8; n++) {
+      const t = n * Ts;
+      const a = analogSignal(t);
+      const { idx, q } = quantizeInfo(a, state.bits);
+      const bin = idx.toString(2).padStart(state.bits, "0");
+      rows += `<tr><td>${(t*1000).toFixed(3)}</td><td>${a.toFixed(4)}</td><td>${q.toFixed(4)}</td><td>${idx}</td><td class="bin">${bin}</td></tr>`;
+    }
+    $("bitTable").innerHTML =
+      `<table><thead><tr><th>t (ms)</th><th>Analogique</th><th>Quantifié</th><th>Niveau</th><th>Binaire</th></tr></thead><tbody>${rows}</tbody></table>`;
+  }
+
+  function renderGuided() {
+    const c = guidedContent();
+    $("guidedTitle").textContent = c.title;
+    $("guidedText").innerHTML = c.html;
+    $("bitTable").classList.toggle("show", guided.step === 5);
+    if (guided.step === 5) buildBitTable();
+    $("gPrev").disabled = guided.step === 1;
+    $("gNext").disabled = guided.step === STEP_COUNT;
+    $("gDots").innerHTML = Array.from({ length:STEP_COUNT }, (_, i) =>
+      `<span class="${i + 1 === guided.step ? "on" : ""}"></span>`).join("");
+    draw();
+  }
+
+  function startGuided() {
+    guided.active = true; guided.step = 1; guided.progress = 0; guided.lastT = 0;
+    $("guidedPanel").classList.add("active");
+    $("togWrap").classList.add("disabled");
+    $("togNote").innerHTML = "🎓 Mode guidé actif : les couches sont pilotées automatiquement. Les curseurs restent actifs ! Touchez les <span class='term' data-t='aliasing'>termes soulignés</span> pour les définitions.";
+    $("guidedBtn").textContent = "🎓 Mode guidé en cours…";
+    renderGuided();
+    ensureLoop();
+  }
+  function stopGuided() {
+    guided.active = false;
+    $("guidedPanel").classList.remove("active");
+    $("togWrap").classList.remove("disabled");
+    $("togNote").innerHTML = "💡 Descendez fe sous 2× la fréquence du signal pour observer le <span class='term' data-t='aliasing'>repliement spectral (aliasing)</span>. Réduisez les bits pour voir le <span class='term' data-t='quantification'>bruit de quantification</span>.";
+    $("guidedBtn").textContent = "🎓 Lancer le mode guidé pas-à-pas";
+    draw();
+  }
+  $("guidedBtn").addEventListener("click", () => guided.active ? null : startGuided());
+  $("guidedClose").addEventListener("click", stopGuided);
+  $("gPrev").addEventListener("click", () => { if (guided.step > 1) { guided.step--; guided.progress = 0; renderGuided(); } });
+  $("gNext").addEventListener("click", () => { if (guided.step < STEP_COUNT) { guided.step++; guided.progress = 0; renderGuided(); } });
+
+  // ---------- Mesures ----------
+  function updateStats() {
+    $("freqOut").textContent = state.freq + " Hz";
+    $("ampOut").textContent = state.amp.toFixed(2);
+    $("fsOut").textContent = state.fs.toLocaleString("fr-FR") + " Hz";
+    $("bitsOut").textContent = state.bits + (state.bits > 1 ? " bits" : " bit");
+    const nyq = $("nyquist");
+    if (state.source === "gen") {
+      const fMax = fMaxSignal();
+      const ok = state.fs > 2 * fMax;
+      nyq.className = "stat " + (ok ? "ok" : "bad");
+      nyq.querySelector(".v").textContent = ok ? "✓ Respecté" : "✗ Aliasing ! (fmax ≈ " + Math.round(fMax) + " Hz)";
+      $("sppOut").textContent = (state.fs / state.freq).toFixed(1);
+    } else {
+      nyq.className = "stat";
+      nyq.querySelector(".v").textContent = "— source externe";
+      $("sppOut").textContent = "—";
+    }
+    $("levelsOut").textContent = Math.pow(2, state.bits).toLocaleString("fr-FR");
+    $("sqnrOut").textContent = (6.02 * state.bits + 1.76).toFixed(1) + " dB";
+    $("bitrateOut").textContent = Math.round(state.fs * state.bits / 1000) + " kb/s";
+    $("chainAdcInfo").innerHTML = "fe " + (state.fs / 1000).toLocaleString("fr-FR") + " kHz · " + state.bits + " bits<br>" +
+      Math.round(state.fs * state.bits / 1000) + " kb/s";
+    updateScopeMeasurements();
+  }
+
+  function refresh() {
+    updateStats();
+    updateClock();
+    if (guided.active) renderGuided(); else draw();
+  }
+
+
+  // ---------- Horloge ----------
+  $("clockAdc").addEventListener("click", () => setClockMaster("adc"));
+  $("clockDante").addEventListener("click", () => setClockMaster("dante"));
+  $("clockWord").addEventListener("click", () => setClockMaster("word"));
+  $("clockFs").addEventListener("change", e => { state.clockFs = +e.target.value; updateClock(); });
+  $("wordFs").addEventListener("change", e => { state.wordFs = +e.target.value; updateClock(); });
+
+  // ---------- Contrôles ----------
+  $("sigType").addEventListener("change", e => { state.sigType = e.target.value; refresh(); });
+  $("freq").addEventListener("input", e => { state.freq = +e.target.value; refresh(); });
+  $("amp").addEventListener("input", e => { state.amp = e.target.value / 100; refresh(); });
+  $("fs").addEventListener("input", e => { state.fs = +e.target.value; refresh(); });
+  $("bits").addEventListener("input", e => { state.bits = +e.target.value; refresh(); });
+  [["showAnalog","analog"],["showQuantGrid","quantGrid"],["showSamples","samples"],["showRecon","recon"],["showError","error"]]
+    .forEach(([id, key]) => $(id).addEventListener("change", e => { state.show[key] = e.target.checked; draw(); }));
+
+  function setLayout(mode) {
+    state.layout = mode;
+    $("laySplit").classList.toggle("on", mode === "split");
+    $("layOverlay").classList.toggle("on", mode === "overlay");
+    resize();
+  }
+  $("laySplit").addEventListener("click", () => setLayout("split"));
+  $("layOverlay").addEventListener("click", () => setLayout("overlay"));
+
+  function setRecon(mode) {
+    state.recon = mode;
+    $("recZoh").classList.toggle("on", mode === "zoh");
+    $("recLin").classList.toggle("on", mode === "linear");
+    $("recSinc").classList.toggle("on", mode === "sinc");
+    draw();
+  }
+  $("recZoh").addEventListener("click", () => setRecon("zoh"));
+  $("recLin").addEventListener("click", () => setRecon("linear"));
+  $("recSinc").addEventListener("click", () => setRecon("sinc"));
+
+  function setSource(src) {
+    state.source = src;
+    $("srcGen").classList.toggle("on", src === "gen");
+    $("srcMic").classList.toggle("on", src === "mic");
+    $("srcFile").classList.toggle("on", src === "file");
+    $("genCtrls").style.display = src === "gen" ? "" : "none";
+    $("micRow").style.display = src === "mic" ? "" : "none";
+    $("fileRow").style.display = src === "file" ? "" : "none";
+    const micMode = src === "mic";
+    $("playOriginal").disabled = micMode;
+    $("playDigital").disabled = micMode;
+    $("audioNote").innerHTML = micMode
+      ? "Écoute désactivée en mode micro pour éviter l'<span class='term' data-t='larsen'>effet Larsen</span> 🎤🔁🔊"
+      : "Le signal « numérique » est échantillonné, quantifié puis reconstruit selon vos réglages — comparez bloqueur, linéaire et sinc !";
+    if (src !== "gen") ensureLoop();
+    refresh();
+  }
+  $("srcGen").addEventListener("click", () => setSource("gen"));
+  $("srcMic").addEventListener("click", () => setSource("mic"));
+  $("srcFile").addEventListener("click", () => setSource("file"));
+
+  $("micBtn").addEventListener("click", () => {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      $("micStatus").textContent = "❌ Micro indisponible dans cette app. Ouvrez le fichier dans Safari pour utiliser le micro.";
+      return;
+    }
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === "suspended") audioCtx.resume();
+    navigator.mediaDevices.getUserMedia({ audio:true })
+      .then(stream => {
+        micStream = stream;
+        micRate = audioCtx.sampleRate;
+        const src = audioCtx.createMediaStreamSource(stream);
+        analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 2048;
+        micTmp = new Float32Array(analyser.fftSize);
+        src.connect(analyser);
+        micReady = true;
+        $("micStatus").textContent = "✅ Micro actif (" + Math.round(micRate / 1000) + " kHz) — parlez et regardez la numérisation en direct !";
+        $("micBtn").textContent = "🎤 Micro actif";
+        ensureLoop();
+      })
+      .catch(() => { $("micStatus").textContent = "❌ Accès refusé ou indisponible ici. Essayez dans Safari."; });
+  });
+
+  $("fileInput").addEventListener("change", e => {
+    const f = e.target.files[0];
+    if (!f) return;
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const reader = new FileReader();
+    reader.onload = () => {
+      audioCtx.decodeAudioData(reader.result, buf => {
+        fileRate = buf.sampleRate;
+        fileDur = buf.duration;
+        const ch0 = buf.getChannelData(0);
+        if (buf.numberOfChannels > 1) {
+          const ch1 = buf.getChannelData(1);
+          fileData = new Float32Array(ch0.length);
+          for (let i = 0; i < ch0.length; i++) fileData[i] = (ch0[i] + ch1[i]) / 2;
+        } else fileData = ch0;
+        fileReady = true; fileOffset = 0;
+        $("fileStatus").textContent = "✅ « " + f.name + " » chargé (" + fileDur.toFixed(1) + " s, boucle)";
+        ensureLoop();
+      }, () => { $("fileStatus").textContent = "❌ Format non lisible."; });
+    };
+    reader.readAsArrayBuffer(f);
+  });
+
+  // ---------- Oscilloscope ----------
+  document.querySelectorAll("#scopeTimeSeg button").forEach(btn => btn.addEventListener("click", () => {
+    state.scope.timeDiv = +btn.dataset.time;
+    document.querySelectorAll("#scopeTimeSeg button").forEach(b => b.classList.toggle("on", b === btn));
+    refresh();
+  }));
+  document.querySelectorAll("#scopeVoltSeg button").forEach(btn => btn.addEventListener("click", () => {
+    state.scope.voltDiv = +btn.dataset.volt;
+    document.querySelectorAll("#scopeVoltSeg button").forEach(b => b.classList.toggle("on", b === btn));
+    refresh();
+  }));
+  $("triggerLevel").addEventListener("input", e => {
+    state.scope.triggerLevel = +e.target.value;
+    $("triggerOut").textContent = state.scope.triggerLevel.toFixed(2);
+    draw();
+  });
+  $("triggerRise").addEventListener("click", () => {
+    state.scope.slope = "rise";
+    $("triggerRise").classList.add("on"); $("triggerFall").classList.remove("on");
+    draw();
+  });
+  $("triggerFall").addEventListener("click", () => {
+    state.scope.slope = "fall";
+    $("triggerFall").classList.add("on"); $("triggerRise").classList.remove("on");
+    draw();
+  });
+  $("triggerAuto").addEventListener("click", () => {
+    state.scope.mode = "auto";
+    $("triggerAuto").classList.add("on"); $("triggerNormal").classList.remove("on");
+    draw();
+  });
+  $("triggerNormal").addEventListener("click", () => {
+    state.scope.mode = "normal";
+    $("triggerNormal").classList.add("on"); $("triggerAuto").classList.remove("on");
+    draw();
+  });
+
+  // ---------- Presets ----------
+  const FACTORY = [
+    { name:"📀 CD audio — 44,1 kHz / 16 bits", p:{ sigType:"sine", freq:440, amp:0.9, fs:44100, bits:16, recon:"zoh", layout:"split" } },
+    { name:"📞 Téléphonie — 8 kHz / 8 bits", p:{ sigType:"voice", freq:300, amp:0.9, fs:8000, bits:8, recon:"zoh", layout:"split" } },
+    { name:"⚠️ Aliasing en action", p:{ sigType:"sine", freq:4000, amp:0.9, fs:6000, bits:8, recon:"zoh", layout:"split" } },
+    { name:"🕹 Lo-fi — 2 bits", p:{ sigType:"composite", freq:220, amp:0.9, fs:8000, bits:2, recon:"zoh", layout:"split" } },
+    { name:"✨ Reconstruction sinc idéale", p:{ sigType:"composite", freq:500, amp:0.9, fs:8000, bits:6, recon:"sinc", layout:"split" } }
+  ];
+  let userPresets = [];
+  try { userPresets = JSON.parse(localStorage.getItem("laboAdcPresets") || "[]"); } catch (e) { userPresets = []; }
+  function allPresets() { return FACTORY.concat(userPresets); }
+  function populatePresets(selIdx) {
+    $("presetSelect").innerHTML = allPresets().map((p, i) =>
+      `<option value="${i}"${i === selIdx ? " selected" : ""}>${p.name}</option>`).join("");
+  }
+  function applyPreset(p) {
+    state.sigType = p.sigType; state.freq = p.freq; state.amp = p.amp;
+    state.fs = p.fs; state.bits = p.bits;
+    $("sigType").value = p.sigType;
+    $("freq").value = p.freq; $("amp").value = Math.round(p.amp * 100);
+    $("fs").value = p.fs; $("bits").value = p.bits;
+    setRecon(p.recon || "zoh");
+    setLayout(p.layout || "split");
+    refresh();
+  }
+  $("presetSelect").addEventListener("change", e => {
+    const p = allPresets()[+e.target.value];
+    if (p) applyPreset(p.p);
+  });
+  $("presetSave").addEventListener("click", () => {
+    const name = $("presetName").value.trim() || ("Preset " + (userPresets.length + 1));
+    userPresets.push({ name:"⭐ " + name, p:{
+      sigType:state.sigType, freq:state.freq, amp:state.amp,
+      fs:state.fs, bits:state.bits, recon:state.recon, layout:state.layout
+    }});
+    try { localStorage.setItem("laboAdcPresets", JSON.stringify(userPresets)); } catch (e) {}
+    $("presetName").value = "";
+    populatePresets(allPresets().length - 1);
+  });
+  $("presetDel").addEventListener("click", () => {
+    const idx = +$("presetSelect").value;
+    if (idx < FACTORY.length) return;
+    userPresets.splice(idx - FACTORY.length, 1);
+    try { localStorage.setItem("laboAdcPresets", JSON.stringify(userPresets)); } catch (e) {}
+    populatePresets(0);
+  });
+
+  // ---------- Audio ----------
+  let currentSrc = null;
+  const PLAY_DUR = 2.0;
+  function stopAudio() {
+    if (currentSrc) { try { currentSrc.stop(); } catch (e) {} currentSrc = null; }
+    document.querySelectorAll(".audio-btns button").forEach(b => {
+      b.classList.remove("playing");
+      b.textContent = b.id === "playOriginal" ? "▶ Original" : "▶ Numérique";
+    });
+  }
+  function play(digital, btn) {
+    if (state.source === "mic") return;
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === "suspended") audioCtx.resume();
+    stopAudio();
+    const sr = audioCtx.sampleRate;
+    const len = Math.floor(sr * PLAY_DUR);
+    const buf = audioCtx.createBuffer(1, len, sr);
+    const data = buf.getChannelData(0);
+    const Ts = 1 / state.fs;
+    let qArr = null;
+    if (digital) {
+      const nMax = Math.ceil(PLAY_DUR / Ts) + 2;
+      qArr = new Float32Array(nMax);
+      for (let n = 0; n < nMax; n++) qArr[n] = quantize(analogSignal(n * Ts), state.bits);
+    }
+    for (let i = 0; i < len; i++) {
+      const t = i / sr;
+      let v = digital ? reconValue(t, qArr, Ts) : analogSignal(t);
+      const fade = Math.min(1, i / (sr * 0.02), (len - i) / (sr * 0.05));
+      data[i] = Math.max(-1, Math.min(1, v)) * fade * 0.8;
+    }
+    const src = audioCtx.createBufferSource();
+    src.buffer = buf;
+    src.connect(audioCtx.destination);
+    src.start();
+    currentSrc = src;
+    btn.classList.add("playing");
+    btn.textContent = "⏹ Stop";
+    src.onended = () => { if (currentSrc === src) stopAudio(); };
+  }
+  $("playOriginal").addEventListener("click", function () {
+    this.classList.contains("playing") ? stopAudio() : play(false, this);
+  });
+  $("playDigital").addEventListener("click", function () {
+    this.classList.contains("playing") ? stopAudio() : play(true, this);
+  });
+
+  // ---------- Init ----------
+  window.addEventListener("resize", resize);
+  buildChipTable();
+  populatePresets(-1);
+  resize();
+  requestAnimationFrame(() => { resize(); refresh(); });
+  updateChainPulse();
+  updLatency();
+  updDante();
+  updDelay("ms");
+  updDb("dbu");
+  setClockMaster("adc");
+  $("clockFs").value = state.clockFs;
+  $("wordFs").value = state.wordFs;
+  updateClock();
+  ensureLoop();
+})();
+</script>
+<script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js")
+      .then(() => console.log("Service worker Labo ADC actif"))
+      .catch(error => console.error("Service worker :", error));
+  });
+}
+</script>
+</body>
+</html>
