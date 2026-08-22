@@ -44,5 +44,14 @@ let fault=['igmp','qos','clock','route','loop'][Math.floor(Math.random()*5)];con
 $('check4').onclick=()=>{const d=$('diagnosis').value,a=$('action').value;const good=(fault==='igmp'&&d==='igmp'&&a==='querier')||(fault==='qos'&&d==='qos'&&a==='qosOn')||(fault==='clock'&&d==='clock'&&a==='master')||(fault==='route'&&d==='route'&&a==='routeFix')||(fault==='loop'&&d==='loop'&&a==='separate');ok4=good;$('r4').innerHTML=good?'<b>✓ Diagnostic correct et action adaptée.</b>':'<span class="bad">✗ Diagnostic incorrect.</span> Utilisez les symptômes : visibilité, horloge, souscriptions, latence, réseau.';if(good){$('reportBtn').style.display='block';showWhy('diag')}score()};
 $('reportBtn').onclick=()=>{$('report').style.display='block';$('report').innerHTML='<b>MISSION DANTE NIVEAU 2 — RAPPORT</b><br><br>✓ Réseau administré et segmentation VLAN<br>✓ Multicast contrôlé par IGMP<br>✓ QoS pour PTP et audio<br>✓ Redondance primaire/secondaire<br>✓ Diagnostic méthodique d’une panne<br><br><span class="good">Objectifs : '+goals+' / 7</span><br><br>Les boutons 🤖 ont copié des questions prêtes à approfondir avec votre assistant IA.'};score();updateDist();updateRed()})();
 </script>
+  <script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js")
+      .then(() => console.log("Service worker Labo AV actif"))
+      .catch(error => console.error("Service worker :", error));
+  });
+}
+</script>
 </body>
 </html>
