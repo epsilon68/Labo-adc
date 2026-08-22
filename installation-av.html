@@ -54,5 +54,14 @@ $('testBtn').onclick=()=>{checks();$('signal').classList.add('on');['nMic','nDsp
 $('reportBtn').onclick=()=>{$('report').style.display='block';$('report').innerHTML=`<b>MISSION AV-01 — RAPPORT PÉDAGOGIQUE</b><br><br>Statut : <span class="good">RÉUSSIE</span><br><br><b>Pourquoi ces choix ?</b><br>• 4 microphones : un canal indépendant par intervenant.<br>• 2 haut-parleurs : deux zones de couverture.<br>• 48 kHz : cohérent avec l'audiovisuel.<br>• 24 bits : marge dynamique confortable.<br>• VLAN 10 : isolation logique du trafic AV.<br>• /24 : réseau simple et extensible, 254 hôtes possibles.<br>• DSP maître : référence d'horloge déterministe.<br>• QoS : priorité aux paquets audio sensibles au temps.<br><br><span class="good">✓ Installation validée avec justification.</span>`};
 calc();checks();score()})();
 </script>
+  <script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js")
+      .then(() => console.log("Service worker Labo AV actif"))
+      .catch(error => console.error("Service worker :", error));
+  });
+}
+</script>
 </body>
 </html>
