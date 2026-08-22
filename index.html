@@ -34,5 +34,14 @@
 <script>
 (()=>{const $=id=>document.getElementById(id);const keys=['adc','dante1','dante2','install'];function read(k){return localStorage.getItem('laboProgress_'+k)==='done'}function update(){const done=keys.filter(read).length,p=Math.round(done/keys.length*100);$('overall').textContent=p+' % complété';$('overallBar').style.width=p+'%';$('adcStat').textContent=read('adc')?'✓':'—';$('d1Stat').textContent=read('dante1')?'✓':'—';$('d2Stat').textContent=read('dante2')?'✓':'—'}document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{localStorage.setItem('laboLastModule',b.dataset.key);location.href=b.dataset.go});$('reset').onclick=()=>{if(confirm('Réinitialiser la progression locale ?')){keys.forEach(k=>localStorage.removeItem('laboProgress_'+k));update()}};update()})();
 </script>
+  <script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js")
+      .then(() => console.log("Service worker Labo AV actif"))
+      .catch(error => console.error("Service worker :", error));
+  });
+}
+</script>
 </body>
 </html>
