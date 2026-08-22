@@ -78,5 +78,14 @@ $("restart").onclick=()=>{score=0;chosen=[];lat=null;makeDevices();document.quer
 makeDevices();updateProgress();
 })();
 </script>
+  <script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js")
+      .then(() => console.log("Service worker Labo AV actif"))
+      .catch(error => console.error("Service worker :", error));
+  });
+}
+</script>
 </body>
 </html>
