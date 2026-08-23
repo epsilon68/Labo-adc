@@ -15,6 +15,10 @@
 </style>
 </head>
 <body>
+  <!-- Barre de progression globale -->
+<div id="globalProgressBar" style="position: fixed; top: 0; left: 0; height: 3px; background: transparent; z-index: 9999; width: 100%; pointer-events: none;">
+  <div id="globalProgressFill" style="height: 100%; width: 0%; background: linear-gradient(90deg, #58a6ff, #3fb950); transition: width 0.4s ease;"></div>
+</div>
 <header><h1>🌐 Mission Dante — Niveau 1</h1><p>Discovery · Clocking · Subscriptions · Latency</p></header>
 <main>
 <button class="back" id="back">← Retour au Labo ADC</button>
@@ -86,6 +90,25 @@ if ("serviceWorker" in navigator) {
       .catch(error => console.error("Service worker :", error));
   });
 }
+</script>
+  <script>
+(function() {
+  function updateGlobalProgress() {
+    const keys = ['adc', 'dante1', 'dante2', 'install'];
+    let done = 0;
+    keys.forEach(k => {
+      if (localStorage.getItem('laboProgress_' + k) === 'done') done++;
+    });
+    const pct = Math.round((done / keys.length) * 100);
+    const fill = document.getElementById('globalProgressFill');
+    if (fill) {
+      fill.style.width = pct + '%';
+    }
+  }
+  updateGlobalProgress();
+  window.addEventListener('storage', updateGlobalProgress);
+  window.addEventListener('laboProgressUpdate', updateGlobalProgress);
+})();
 </script>
 </body>
 </html>
