@@ -46,25 +46,26 @@ if ("serviceWorker" in navigator) {
       .catch(error => console.error("Service worker :", error));
   });
 }
-</script>
+...
+  <script>
   (function() {
-  function updateGlobalProgress() {
-    const keys = ['adc', 'dante1', 'dante2', 'install'];
-    let done = 0;
-    keys.forEach(k => {
-      if (localStorage.getItem('laboProgress_' + k) === 'done') done++;
-    });
-    const pct = Math.round((done / keys.length) * 100);
-    const fill = document.getElementById('globalProgressFill');
-    if (fill) {
-      fill.style.width = pct + '%';
+    function updateGlobalProgress() {
+      const keys = ['adc', 'dante1', 'dante2', 'install'];
+      let done = 0;
+      keys.forEach(k => {
+        if (localStorage.getItem('laboProgress_' + k) === 'done') done++;
+      });
+      const pct = Math.round((done / keys.length) * 100);
+      const fill = document.getElementById('globalProgressFill');
+      if (fill) {
+        fill.style.width = pct + '%';
+      }
     }
-  }
-  // Mettre à jour immédiatement et lors des changements de stockage (au cas où)
-  updateGlobalProgress();
-  window.addEventListener('storage', updateGlobalProgress);
-  // Optionnel : écouter les événements personnalisés si vous en émettez
-  window.addEventListener('laboProgressUpdate', updateGlobalProgress);
-})();
+    updateGlobalProgress();
+    window.addEventListener('storage', updateGlobalProgress);
+    window.addEventListener('laboProgressUpdate', updateGlobalProgress);
+  })();
+  </script>
+</body>
 </body>
 </html>
