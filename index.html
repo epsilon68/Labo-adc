@@ -22,7 +22,7 @@
 </div>
 <header><h1>🎛 Labo AV — Tableau de bord</h1><p>Votre parcours interactif audio, conversion A/N et Dante</p></header>
 <main>
-  <!-- Encart parcours actif -->
+<!-- Encart parcours actif -->
 <div id="parcoursBanner" style="max-width:920px; margin: 0 auto 16px; padding: 0 16px;">
   <div style="background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:14px;">
     <div style="display:flex; align-items:center; gap:10px;">
@@ -34,6 +34,15 @@
       <button id="changeParcoursBtn" style="width:auto; padding:8px 12px; background:#0d1117; border:1px solid var(--border); border-radius:8px; color:var(--text); font-size:0.8rem; cursor:pointer;">Changer</button>
     </div>
     <div id="parcoursEtapes" style="margin-top:10px;"></div>
+  </div>
+</div>
+
+<!-- Modale de sélection du parcours -->
+<div id="parcoursModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:1000; align-items:center; justify-content:center; padding:20px;">
+  <div style="background:var(--panel); border:1px solid #6e40c9; border-radius:16px; padding:20px; max-width:400px; width:100%;">
+    <h3 style="margin:0 0 12px; color:#d2a8ff;">Choisissez votre parcours</h3>
+    <div id="parcoursList" style="display:grid; gap:8px;"></div>
+    <button id="closeParcoursModal" style="margin-top:12px; width:100%; padding:10px; background:#0d1117; border:1px solid var(--border); border-radius:8px; color:var(--text);">Annuler</button>
   </div>
 </div>
 <div class="hero"><h2>Bienvenue dans votre laboratoire AV</h2><p>Choisissez un module. Votre progression est conservée localement sur cet appareil et fonctionne hors ligne après la première ouverture.</p><div class="overall" id="overall">0 % complété</div><div class="progress"><i id="overallBar"></i></div></div>
@@ -81,15 +90,21 @@ if ("serviceWorker" in navigator) {
     window.addEventListener('laboProgressUpdate', updateGlobalProgress);
   })();
   </script>
-  <script>
+<script>
 (function() {
+  // Vérification que PARCOURS est bien chargé
+  if (typeof PARCOURS === 'undefined') {
+    console.error('parcours.js non chargé');
+    document.getElementById('parcoursNom').textContent = 'Erreur : parcours.js manquant';
+    return;
+  }
+
   function afficherParcours() {
     const p = getParcoursActif();
     document.getElementById('parcoursEmoji').textContent = p.emoji;
     document.getElementById('parcoursNom').textContent = p.nom;
     document.getElementById('parcoursDesc').textContent = p.description;
 
-    // Construire la liste des étapes
     let html = '<ol style="margin:0; padding-left:20px; color:var(--muted); font-size:0.85rem;">';
     p.etapes.forEach(etape => {
       if (etape.fichier) {
@@ -102,28 +117,38 @@ if ("serviceWorker" in navigator) {
     document.getElementById('parcoursEtapes').innerHTML = html;
   }
 
-  // Afficher au chargement
-  afficherParcours();
+  function ouvrirModal() {
+    const list = document.getElementById('parcoursList');
+    let html = '';
+    Object.values(PARCOURS).forEach(p => {
+      html += `<button class="parcours-option" data-id="${p.id}" style="padding:12px; background:#0d1117; border:1px solid var(--border); border-radius:8px; color:var(--text); text-align:left; cursor:pointer; width:100%;">
+        <span style="font-size:1.2rem;">${p.emoji}</span> <strong>${p.nom}</strong><br>
+        <span style="font-size:0.75rem; color:var(--muted);">${p.description}</span>
+      </button>`;
+    });
+    list.innerHTML = html;
+    document.getElementById('parcoursModal').style.display = 'flex';
+    list.querySelectorAll('.parcours-option').forEach(btn => {
+      btn.addEventListener('click', () => {
+        setParcoursActif(btn.dataset.id);
+        document.getElementById('parcoursModal').style.display = 'none';
+        afficherParcours();
+      });
+    });
+  }
 
-  // Écouter les changements éventuels
-  window.addEventListener('laboParcoursUpdate', afficherParcours);
-
-  // Gérer le bouton "Changer"
-  document.getElementById('changeParcoursBtn').addEventListener('click', () => {
-    // Afficher une fenêtre de sélection simple
-    const choix = prompt('Choisissez un parcours :\n1 - Débutant\n2 - Technicien son\n3 - Intégrateur AV\n4 - Certification');
-    const mapping = {
-      '1': 'debutant',
-      '2': 'technicien',
-      '3': 'integrateur',
-      '4': 'certification'
-    };
-    if (mapping[choix]) {
-      setParcoursActif(mapping[choix]);
-    } else if (choix !== null) {
-      alert('Choix invalide. Veuillez entrer 1, 2, 3 ou 4.');
+  document.getElementById('changeParcoursBtn').addEventListener('click', ouvrirModal);
+  document.getElementById('closeParcoursModal').addEventListener('click', () => {
+    document.getElementById('parcoursModal').style.display = 'none';
+  });
+  document.getElementById('parcoursModal').addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) {
+      document.getElementById('parcoursModal').style.display = 'none';
     }
   });
+
+  afficherParcours();
+  window.addEventListener('laboParcoursUpdate', afficherParcours);
 })();
 </script>
 </body>
