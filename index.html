@@ -22,6 +22,20 @@
 </div>
 <header><h1>🎛 Labo AV — Tableau de bord</h1><p>Votre parcours interactif audio, conversion A/N et Dante</p></header>
 <main>
+  <!-- Encart parcours actif -->
+<div id="parcoursBanner" style="max-width:920px; margin: 0 auto 16px; padding: 0 16px;">
+  <div style="background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:14px;">
+    <div style="display:flex; align-items:center; gap:10px;">
+      <span id="parcoursEmoji" style="font-size:1.5rem;"></span>
+      <div style="flex:1;">
+        <h2 id="parcoursNom" style="margin:0; font-size:1rem;"></h2>
+        <p id="parcoursDesc" style="margin:4px 0 0; color:var(--muted); font-size:0.82rem;"></p>
+      </div>
+      <button id="changeParcoursBtn" style="width:auto; padding:8px 12px; background:#0d1117; border:1px solid var(--border); border-radius:8px; color:var(--text); font-size:0.8rem; cursor:pointer;">Changer</button>
+    </div>
+    <div id="parcoursEtapes" style="margin-top:10px;"></div>
+  </div>
+</div>
 <div class="hero"><h2>Bienvenue dans votre laboratoire AV</h2><p>Choisissez un module. Votre progression est conservée localement sur cet appareil et fonctionne hors ligne après la première ouverture.</p><div class="overall" id="overall">0 % complété</div><div class="progress"><i id="overallBar"></i></div></div>
 <div class="section-title">Modules d’apprentissage</div>
 <div class="module-grid">
