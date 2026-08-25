@@ -73,7 +73,7 @@ if ("serviceWorker" in navigator) {
   <script>
   (function() {
     function updateGlobalProgress() {
-      const keys = ['adc', 'dante1', 'dante2', 'install'];
+      const keys = ['adc','dante2'];
       let done = 0;
       keys.forEach(k => {
         if (localStorage.getItem('laboProgress_' + k) === 'done') done++;
