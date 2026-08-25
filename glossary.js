@@ -1,4 +1,4 @@
-// glossary.js — Glossaire complet (75+ termes) avec liens externes
+// glossary.js — Glossaire complet (75+ termes) + Surbrillance automatique
 const GLOSSARY = {
   // ============================================================
   // 1. SIGNAL & PHYSIQUE AUDIO
@@ -322,7 +322,41 @@ const GLOSSARY = {
 };
 
 // ============================================================
-// MOTEUR DU POPOVER (identique à l'ancien, mais universel)
+// FONCTION DE SURBRILLANCE AUTOMATIQUE (le moteur intelligent)
+// ============================================================
+function highlightGlossaryTerms(text) {
+  if (!text || typeof text !== 'string') return text;
+
+  // 1. Récupérer toutes les clés
+  const keys = Object.keys(GLOSSARY);
+  
+  // 2. Trier par longueur décroissante (priorité aux expressions les plus longues)
+  const sortedKeys = keys.sort((a, b) => b.length - a.length);
+  
+  // 3. Échapper les caractères spéciaux pour la regex
+  const escapedKeys = sortedKeys.map(key => 
+    key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  );
+  
+  // 4. Construire la regex. On utilise 'gi' pour insensible à la casse.
+  //    Le tri par longueur évite les chevauchements.
+  const regex = new RegExp(escapedKeys.join('|'), 'gi');
+  
+  // 5. Remplacer chaque occurrence par un span cliquable
+  return text.replace(regex, (match) => {
+    // Trouver la clé originale (avec la bonne casse)
+    const originalKey = sortedKeys.find(key => 
+      key.toLowerCase() === match.toLowerCase()
+    );
+    if (originalKey && GLOSSARY[originalKey]) {
+      return `<span class="glossary-term" data-term="${originalKey}">${match}</span>`;
+    }
+    return match;
+  });
+}
+
+// ============================================================
+// MOTEUR DU POPOVER (identique, appelable depuis n'importe où)
 // ============================================================
 function showGlossaryPopover(term, event) {
   const entry = GLOSSARY[term];
@@ -366,7 +400,7 @@ function showGlossaryPopover(term, event) {
   setTimeout(() => document.addEventListener('click', close), 50);
 }
 
-// Injection du style (une seule fois)
+// Injection du style global (une seule fois)
 if (!document.getElementById('glossaryStyle')) {
   const style = document.createElement('style');
   style.id = 'glossaryStyle';
@@ -380,11 +414,25 @@ if (!document.getElementById('glossaryStyle')) {
       border-bottom: 1px dashed #6e40c9;
       cursor: pointer;
       transition: all 0.15s;
+      font-weight: 500;
     }
     .glossary-term:hover {
-      background: rgba(110,64,201,0.15);
+      background: rgba(110,64,201,0.2);
       border-bottom-color: #bc8cff;
     }
   `;
   document.head.appendChild(style);
 }
+
+// Délégation d'événement : écouter les clics sur les termes du glossaire (même chargés dynamiquement)
+document.addEventListener('click', function(e) {
+  const target = e.target.closest('.glossary-term');
+  if (target) {
+    e.preventDefault();
+    e.stopPropagation();
+    const term = target.dataset.term;
+    if (term) {
+      showGlossaryPopover(term, e);
+    }
+  }
+});
