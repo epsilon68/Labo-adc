@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#161b22">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Labo AV">
+<link rel="apple-touch-icon" href="./icon-192.png">
+<title>Labo AV — Parcours interactifs</title>
+<style>
+:root{--bg:#0d1117;--panel:#161b22;--border:#30363d;--text:#e6edf3;--muted:#8b949e;--blue:#58a6ff;--green:#3fb950;--yellow:#d29922;--purple:#bc8cff;--accent:#6e40c9;--radius:14px}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",sans-serif;min-height:100vh}
+#app{max-width:960px;margin:0 auto;padding:20px 16px 40px}
+.screen{display:none;animation:fadeIn .3s ease}
+.screen.active{display:block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.selector-header{text-align:center;margin-bottom:30px}
+.selector-header h1{font-size:2rem;margin:0 0 6px;background:linear-gradient(135deg,#d2a8ff,#58a6ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.selector-header p{color:var(--muted);margin:0}
+.path-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px}
+.path-card{background:var(--panel);border:2px solid var(--border);border-radius:var(--radius);padding:20px;cursor:pointer;transition:all .2s;text-align:left}
+.path-card:hover{transform:translateY(-4px);border-color:var(--accent);box-shadow:0 8px 30px rgba(110,64,201,0.15)}
+.path-card .emoji{font-size:2.4rem;display:block;margin-bottom:8px}
+.path-card h3{margin:0 0 4px;font-size:1.1rem}
+.path-card .desc{color:var(--muted);font-size:.82rem;margin:6px 0 10px;line-height:1.4}
+.path-card .badge{display:inline-block;background:rgba(110,64,201,0.2);color:var(--purple);padding:3px 10px;border-radius:20px;font-size:.7rem;font-weight:600}
+.dashboard-header{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:16px 20px;margin-bottom:20px}
+.dashboard-header .emoji{font-size:2rem}
+.dashboard-header .info{flex:1}
+.dashboard-header .info h2{margin:0;font-size:1.2rem}
+.dashboard-header .info .badge{color:var(--muted);font-size:.8rem}
+.dashboard-header .actions{display:flex;gap:8px}
+.dashboard-header .actions button{background:#0d1117;border:1px solid var(--border);color:var(--text);padding:6px 14px;border-radius:8px;font-size:.75rem;cursor:pointer;transition:background .2s}
+.dashboard-header .actions button:hover{background:var(--border)}
+.progress-block{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:16px 20px;margin-bottom:24px}
+.progress-block .label{display:flex;justify-content:space-between;font-size:.85rem;margin-bottom:6px}
+.progress-block .label span:last-child{color:var(--blue);font-weight:700}
+.progress-bar{height:10px;background:#21262d;border-radius:10px;overflow:hidden}
+.progress-bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--blue),var(--green));transition:width .4s}
+.timeline{display:flex;flex-direction:column;gap:12px}
+.timeline-item{display:flex;align-items:stretch;gap:14px;background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:14px 18px;transition:all .2s}
+.timeline-item.status-done{border-left:4px solid var(--green);opacity:.8}
+.timeline-item.status-active{border-left:4px solid var(--blue);background:#161b2a}
+.timeline-item.status-locked{border-left:4px solid var(--muted);opacity:.5;filter:grayscale(.4)}
+.timeline-item .step-icon{font-size:1.3rem;min-width:32px;display:flex;align-items:center;justify-content:center}
+.timeline-item .step-content{flex:1}
+.timeline-item .step-content .title{font-weight:600;font-size:.95rem;margin:0 0 2px}
+.timeline-item .step-content .conseil{font-size:.75rem;color:var(--muted);margin:0}
+.timeline-item .step-action{margin-left:auto;display:flex;align-items:center}
+.timeline-item .step-action button{background:var(--blue);border:none;color:#fff;padding:6px 16px;border-radius:8px;font-weight:600;font-size:.75rem;cursor:pointer;transition:background .2s}
+.timeline-item .step-action button:hover{background:#4791e0}
+.timeline-item .step-action button:disabled{background:var(--border);color:var(--muted);cursor:not-allowed}
+.timeline-item .step-action .done-badge{color:var(--green);font-weight:700;font-size:.85rem}
+.timeline-item .step-action .lock-badge{color:var(--muted);font-size:.8rem}
+.footer-actions{margin-top:30px;display:flex;gap:12px;justify-content:center}
+.footer-actions button{background:transparent;border:1px solid var(--border);color:var(--muted);padding:8px 18px;border-radius:8px;font-size:.75rem;cursor:pointer;transition:all .2s}
+.footer-actions button:hover{background:var(--panel);color:var(--text)}
+@media(max-width:600px){.path-grid{grid-template-columns:1fr}.dashboard-header{flex-direction:column;align-items:flex-start}.dashboard-header .actions{width:100%;justify-content:flex-end}.timeline-item{flex-wrap:wrap}.timeline-item .step-action{margin-left:0;width:100%;justify-content:flex-end}}
+</style>
+</head>
+<body>
+<div id="app">
+  <section id="selectorScreen" class="screen active">
+    <div class="selector-header">
+      <h1>🎛 Choisissez votre voie</h1>
+      <p>Sélectionnez le parcours qui correspond à votre niveau et à vos objectifs</p>
+    </div>
+    <div class="path-grid" id="pathGrid"></div>
+  </section>
+  <section id="dashboardScreen" class="screen">
+    <div class="dashboard-header" id="dashHeader">
+      <span class="emoji" id="dashEmoji">🟢</span>
+      <div class="info">
+        <h2 id="dashName">Débutant</h2>
+        <span class="badge" id="dashBadge">Explorateur audio</span>
+      </div>
+      <div class="actions">
+        <button id="resetPathBtn">⟳ Réinitialiser</button>
+        <button id="changePathBtn">Changer de voie</button>
+      </div>
+    </div>
+    <div class="progress-block">
+      <div class="label"><span>Progression du parcours</span><span id="progressText">0 / 0 étapes</span></div>
+      <div class="progress-bar"><i id="progressBar" style="width:0%"></i></div>
+    </div>
+    <div class="timeline" id="timelineContainer"></div>
+    <div class="footer-actions">
+      <button id="backToSelectorBtn">⬅ Retour à la sélection</button>
+    </div>
+  </section>
+</div>
+<script src="parcours.js"></script>
+<script src="glossary.js"></script>
+<script src="scenarios.js"></script>
+<script>
+(function(){
+  const selectorScreen = document.getElementById('selectorScreen');
+  const dashboardScreen = document.getElementById('dashboardScreen');
+  const pathGrid = document.getElementById('pathGrid');
+  const dashEmoji = document.getElementById('dashEmoji');
+  const dashName = document.getElementById('dashName');
+  const dashBadge = document.getElementById('dashBadge');
+  const progressText = document.getElementById('progressText');
+  const progressBar = document.getElementById('progressBar');
+  const timelineContainer = document.getElementById('timelineContainer');
+  const resetPathBtn = document.getElementById('resetPathBtn');
+  const changePathBtn = document.getElementById('changePathBtn');
+  const backToSelectorBtn = document.getElementById('backToSelectorBtn');
+
+  function renderSelector(){
+    pathGrid.innerHTML = '';
+    Object.values(PARCOURS).forEach(p => {
+      const card = document.createElement('div');
+      card.className = 'path-card';
+      card.innerHTML = `
+        <span class="emoji">${p.emoji}</span>
+        <h3>${p.nom}</h3>
+        <div class="desc">${p.description}</div>
+        <span class="badge">${p.badge}</span>
+      `;
+      card.addEventListener('click', () => selectPath(p.id));
+      pathGrid.appendChild(card);
+    });
+  }
+
+  function selectPath(id){ setParcoursActif(id); showDashboard(); }
+  function showDashboard(){ selectorScreen.classList.remove('active'); dashboardScreen.classList.add('active'); renderDashboard(); }
+  function showSelector(){ dashboardScreen.classList.remove('active'); selectorScreen.classList.add('active'); }
+
+  function renderDashboard(){
+    const path = getParcoursActif();
+    if(!path){ showSelector(); return; }
+    dashEmoji.textContent = path.emoji;
+    dashName.textContent = path.nom;
+    dashBadge.textContent = path.badge;
+
+    const total = path.etapes.length;
+    let done = 0;
+    path.etapes.forEach(e => { if(isEtapeComplete(e)) done++; });
+    const pct = total > 0 ? Math.round((done/total)*100) : 0;
+    progressText.textContent = `${done} / ${total} étapes`;
+    progressBar.style.width = pct + '%';
+
+    timelineContainer.innerHTML = '';
+    path.etapes.forEach((etape, index) => {
+      const isDone = isEtapeComplete(etape);
+      const isUnlocked = (index === 0) || isEtapeComplete(path.etapes[index - 1]);
+      const isLocked = !isUnlocked && !isDone;
+
+      let statusClass = 'status-locked', icon = '🔒', actionHtml = `<span class="lock-badge">🔒 Verrouillé</span>`;
+      if(isDone){ statusClass = 'status-done'; icon = '✅'; actionHtml = `<span class="done-badge">✓ Terminé</span>`; }
+      else if(isUnlocked){
+        statusClass = 'status-active'; icon = '▶️';
+        if(etape.fichier){
+          // Déterminer le module pour le player
+          const mod = (etape.fichier.includes('dante')) ? 'dante' : 'adc';
+          actionHtml = `<button class="launch-btn" data-file="${etape.fichier}?module=${mod}&step=${index}">Lancer</button>`;
+        } else {
+          actionHtml = `<button class="manual-done" data-key="${etape.key}">Marquer comme fait</button>`;
+        }
+      }
+
+      const item = document.createElement('div');
+      item.className = `timeline-item ${statusClass}`;
+      item.innerHTML = `
+        <div class="step-icon">${icon}</div>
+        <div class="step-content">
+          <div class="title">${etape.module}</div>
+          <div class="conseil">💡 ${etape.conseil}</div>
+        </div>
+        <div class="step-action">${actionHtml}</div>
+      `;
+      timelineContainer.appendChild(item);
+    });
+
+    document.querySelectorAll('.launch-btn').forEach(btn => {
+      btn.addEventListener('click', function(e){ e.stopPropagation(); location.href = this.dataset.file; });
+    });
+    document.querySelectorAll('.manual-done').forEach(btn => {
+      btn.addEventListener('click', function(e){ e.stopPropagation(); completeEtape(this.dataset.key); renderDashboard(); });
+    });
+  }
+
+  changePathBtn.addEventListener('click', showSelector);
+  backToSelectorBtn.addEventListener('click', showSelector);
+  resetPathBtn.addEventListener('click', function(){ if(confirm('Réinitialiser toutes les étapes de ce parcours ?')){ resetParcours(); renderDashboard(); } });
+
+  renderSelector();
+  if(getParcoursActif()) showDashboard();
+  window.addEventListener('laboParcoursUpdate', () => { if(dashboardScreen.classList.contains('active')) renderDashboard(); });
+  window.addEventListener('focus', () => { if(dashboardScreen.classList.contains('active')) renderDashboard(); });
+})();
+</script>
+</body>
+</html>
